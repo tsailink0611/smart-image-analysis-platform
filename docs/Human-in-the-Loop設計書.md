@@ -1,4 +1,4 @@
-# Human in the Loop 設計書
+# Human in the Loop 設計書 【将来機能 - フェーズ2実装予定】
 
 ## 🔄 概要
 
