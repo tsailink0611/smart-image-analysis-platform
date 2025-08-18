@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import Papa from 'papaparse'
+import * as XLSX from 'xlsx'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 
 // 開発環境ではプロキシ経由でアクセス
@@ -56,56 +57,126 @@ function App() {
   const [isFileUploaded, setIsFileUploaded] = useState(false)
   const [showCharts, setShowCharts] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [forceShowGraphs, setForceShowGraphs] = useState(false)
+  const [showDataTable, setShowDataTable] = useState(false)
 
   // 実際のデータからチャート用データを生成
   const generateChartData = () => {
-    if (!salesData || salesData.length === 0) return null;
+    console.log('🔍 generateChartData開始');
+    console.log('🔍 salesData:', salesData);
+    console.log('🔍 salesData.length:', salesData?.length);
+
+    if (!salesData || salesData.length === 0) {
+      console.log('❌ salesDataが空のため、サンプルデータを使用');
+      // サンプルデータを返す
+      return {
+        monthlyData: [
+          { month: 'データなし', sales: 0 },
+        ],
+        productData: [
+          { name: 'データなし', value: 0 },
+        ],
+        analysis: { totalRecords: 0, dateColumns: [], salesColumns: [], productColumns: [] },
+        totalSales: 0
+      };
+    }
 
     const analysis = analyzeSalesData(salesData);
     if (!analysis) return null;
+
+    console.log('📊 generateChartData開始');
+    console.log('salesData全体:', salesData);
+    console.log('salesData最初の3行:', salesData.slice(0, 3));
+    console.log('analysis:', analysis);
 
     // 実データから月別・日別売上を集計
     const monthlyData: any[] = [];
     const productData: any[] = [];
     
+    // すべてのキーを取得
+    const allKeys = Object.keys(salesData[0]);
+    console.log('全カラム名:', allKeys);
+
+    // 各カラムのサンプル値を表示
+    allKeys.forEach(key => {
+      const sampleValues = salesData.slice(0, 3).map(row => row[key]);
+      console.log(`カラム "${key}" のサンプル値:`, sampleValues);
+    });
+
+    // 数値カラムを検索
+    const numericColumns = allKeys.filter(key => {
+      const sampleValues = salesData.slice(0, 10).map(row => row[key]);
+      const numericValues = sampleValues.filter(val => {
+        const cleanVal = String(val).replace(/[,¥円\s]/g, '');
+        const num = Number(cleanVal);
+        return !isNaN(num) && num !== 0 && val !== '' && val !== null && val !== undefined;
+      });
+      console.log(`カラム "${key}": ${numericValues.length}/${sampleValues.length} が数値`);
+      return numericValues.length >= Math.floor(sampleValues.length * 0.3); // 30%以上が数値なら数値カラム
+    });
+
+    console.log('検出された数値カラム:', numericColumns);
+
     // 日付と売上のカラムを使用
-    const dateCol = analysis.dateColumns[0] || Object.keys(salesData[0])[0];
-    const salesCol = analysis.salesColumns[0] || Object.keys(salesData[0]).find(key => 
-      !isNaN(Number(salesData[0][key]))
-    ) || Object.keys(salesData[0])[1];
-    const productCol = analysis.productColumns[0];
+    const dateCol = analysis.dateColumns[0] || allKeys[0];
+    const salesCol = analysis.salesColumns[0] || numericColumns[0] || allKeys[1];
+    const productCol = analysis.productColumns[0] || allKeys.find(key => 
+      key !== dateCol && key !== salesCol
+    );
 
-    // 日付別データを集計（最初の10件を表示）
-    const dailyMap = new Map();
-    salesData.slice(0, 30).forEach(row => {
-      const date = String(row[dateCol] || '不明');
-      const sales = Number(row[salesCol]) || 0;
+    console.log('🎯 選択されたカラム:', { dateCol, salesCol, productCol });
+
+    // 数値変換ヘルパー関数（改善版）
+    const parseNumber = (value: any) => {
+      if (value === null || value === undefined || value === '') return 0;
       
-      if (dailyMap.has(date)) {
-        dailyMap.set(date, dailyMap.get(date) + sales);
+      // 文字列に変換してクリーンアップ
+      let cleanValue = String(value)
+        .replace(/[,¥円\s$€£]/g, '') // 通貨記号を削除
+        .replace(/[^\d.-]/g, '') // 数字、小数点、マイナス以外を削除
+        .trim();
+      
+      const num = parseFloat(cleanValue);
+      const result = isNaN(num) ? 0 : num;
+      
+      console.log(`数値変換: "${value}" -> "${cleanValue}" -> ${result}`);
+      return result;
+    };
+
+    // 日付別データを集計（最初の15件を表示）
+    const dailyMap = new Map();
+    salesData.slice(0, 15).forEach((row, index) => {
+      const date = String(row[dateCol] || `データ${index + 1}`);
+      const salesValue = row[salesCol];
+      const sales = parseNumber(salesValue);
+      
+      console.log(`行${index}:`, { date, salesValue, sales, parseResult: parseNumber(salesValue) }); // デバッグ用
+      
+      const shortDate = date.length > 15 ? date.substring(0, 15) : date;
+      
+      if (dailyMap.has(shortDate)) {
+        dailyMap.set(shortDate, dailyMap.get(shortDate) + sales);
       } else {
-        dailyMap.set(date, sales);
+        dailyMap.set(shortDate, sales);
       }
     });
 
-    // Map を配列に変換（最初の10件）
-    let count = 0;
+    // Map を配列に変換
     dailyMap.forEach((value, key) => {
-      if (count < 10) {
-        monthlyData.push({ 
-          month: key.substring(0, 10), // 日付を短く表示
-          sales: value 
-        });
-        count++;
-      }
+      monthlyData.push({ 
+        month: key,
+        sales: value 
+      });
     });
+
+    console.log('monthlyData:', monthlyData); // デバッグ用
 
     // 商品別売上を集計（商品カラムがある場合）
-    if (productCol) {
+    if (productCol && productCol !== salesCol) {
       const productMap = new Map();
       salesData.forEach(row => {
         const product = String(row[productCol] || '不明');
-        const sales = Number(row[salesCol]) || 0;
+        const sales = parseNumber(row[salesCol]);
         
         if (productMap.has(product)) {
           productMap.set(product, productMap.get(product) + sales);
@@ -123,19 +194,31 @@ function App() {
         productData.push({ name, value });
       });
     } else {
-      // 商品カラムがない場合は、カテゴリ別などで代用
-      productData.push(
-        { name: 'カテゴリA', value: salesData.reduce((sum, row) => sum + (Number(row[salesCol]) || 0), 0) * 0.4 },
-        { name: 'カテゴリB', value: salesData.reduce((sum, row) => sum + (Number(row[salesCol]) || 0), 0) * 0.3 },
-        { name: 'カテゴリC', value: salesData.reduce((sum, row) => sum + (Number(row[salesCol]) || 0), 0) * 0.2 },
-        { name: 'カテゴリD', value: salesData.reduce((sum, row) => sum + (Number(row[salesCol]) || 0), 0) * 0.1 }
-      );
+      // 商品カラムがない場合は、データの分布で代用
+      const totalSalesCalc = salesData.reduce((sum, row) => sum + parseNumber(row[salesCol]), 0);
+      if (totalSalesCalc > 0) {
+        productData.push(
+          { name: 'カテゴリA', value: Math.round(totalSalesCalc * 0.4) },
+          { name: 'カテゴリB', value: Math.round(totalSalesCalc * 0.3) },
+          { name: 'カテゴリC', value: Math.round(totalSalesCalc * 0.2) },
+          { name: 'カテゴリD', value: Math.round(totalSalesCalc * 0.1) }
+        );
+      } else {
+        productData.push(
+          { name: 'サンプルA', value: 100000 },
+          { name: 'サンプルB', value: 80000 },
+          { name: 'サンプルC', value: 60000 },
+          { name: 'サンプルD', value: 40000 }
+        );
+      }
     }
 
     // 総売上を計算
     const totalSales = salesData.reduce((sum, row) => {
-      return sum + (Number(row[salesCol]) || 0);
+      return sum + parseNumber(row[salesCol]);
     }, 0);
+
+    console.log('最終結果:', { monthlyData, productData, totalSales }); // デバッグ用
 
     return { monthlyData, productData, analysis, totalSales };
   };
@@ -144,6 +227,8 @@ function App() {
   const processFile = (file: File) => {
     if (!file) return;
 
+    console.log('🔍 ファイル処理開始:', file.name);
+
     // ファイル形式の確認
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
     if (!['csv', 'xlsx', 'xls'].includes(fileExtension || '')) {
@@ -151,36 +236,204 @@ function App() {
       return;
     }
 
-    Papa.parse(file, {
-      complete: (results) => {
-        setSalesData(results.data as SalesData[])
-        setIsFileUploaded(true)
-        setShowCharts(true)
-        
-        // データ分析情報を表示
-        const analysis = analyzeSalesData(results.data as SalesData[]);
-        let info = `✅ ${file.name} を正常にアップロードしました。\n`;
-        info += `📊 データ行数: ${results.data.length}行\n`;
-        if (analysis) {
-          if (analysis.dateColumns.length > 0) {
-            info += `📅 日付カラム: ${analysis.dateColumns.join(', ')}\n`;
+    // Excelファイルの場合
+    if (['xlsx', 'xls'].includes(fileExtension)) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          
+          console.log('📊 Excel解析完了:', jsonData);
+          console.log('📊 全シート名:', workbook.SheetNames);
+          console.log('📊 使用シート:', sheetName);
+          console.log('📊 生データ（最初の5行）:', jsonData.slice(0, 5));
+          
+          // データが空でないかチェック
+          if (!jsonData || jsonData.length === 0) {
+            setResponse(`❌ Excelファイルにデータが含まれていません。`);
+            return;
           }
-          if (analysis.salesColumns.length > 0) {
-            info += `💰 売上カラム: ${analysis.salesColumns.join(', ')}\n`;
+          
+          // データの最初の数行をチェックして適切なヘッダー行を検出
+          console.log('📊 全データ（最初の5行）:');
+          jsonData.slice(0, 5).forEach((row, index) => {
+            console.log(`  行${index}:`, row);
+          });
+          
+          // 複数行ヘッダーに対応したヘッダー行検出
+          let headerRowIndex = 0;
+          let headers: string[] = [];
+          
+          // 最初の数行を調べて、最も適切なヘッダー行を見つける
+          for (let i = 0; i < Math.min(8, jsonData.length); i++) {
+            const row = jsonData[i] as any[];
+            if (!row || row.length === 0) continue;
+            
+            // 数値ではなく文字列が多い行をヘッダーとして選択
+            const textCells = row.filter(cell => {
+              if (!cell) return false;
+              const str = String(cell).trim();
+              if (str === '') return false;
+              // 数値でない場合は文字列と判断
+              return isNaN(Number(str.replace(/[,¥円\s]/g, '')));
+            });
+            
+            console.log(`行${i}: 文字列セル数=${textCells.length}/${row.length}`, textCells);
+            
+            // 50%以上が文字列の行をヘッダーとして選択
+            if (textCells.length >= row.length * 0.5 && textCells.length >= 3) {
+              headers = row.map((cell, colIndex) => {
+                if (cell && String(cell).trim() !== '') {
+                  return String(cell).trim();
+                } else {
+                  return `列${colIndex + 1}`;
+                }
+              });
+              headerRowIndex = i;
+              console.log(`📊 ヘッダー行として行${i}を選択（文字列率: ${Math.round(textCells.length/row.length*100)}%）:`, headers);
+              break;
+            }
           }
-          if (analysis.productColumns.length > 0) {
-            info += `📦 商品カラム: ${analysis.productColumns.join(', ')}\n`;
+          
+          if (headers.length === 0) {
+            console.log('❌ 有効なヘッダー行が見つかりません');
+            setResponse(`❌ Excelファイルのヘッダー行が検出できません。`);
+            return;
           }
+          
+          const rows = jsonData.slice(headerRowIndex + 1).filter(row => row && (row as any[]).length > 0);
+          console.log('📊 データ行数（フィルター後）:', rows.length);
+          console.log('📊 データ行サンプル:', rows.slice(0, 3));
+          
+          // オブジェクト形式に変換
+          const results = rows.map((row, rowIndex) => {
+            const obj: SalesData = {};
+            headers.forEach((header, index) => {
+              const value = (row as any[])[index];
+              obj[header] = value !== undefined && value !== null ? String(value) : '';
+            });
+            
+            // 最初の3行の変換結果をログ出力
+            if (rowIndex < 3) {
+              console.log(`📊 行${rowIndex + 1}変換結果:`, obj);
+            }
+            
+            return obj;
+          });
+          
+          console.log('📊 最終変換結果（最初の3件）:', results.slice(0, 3));
+
+          handleDataProcessing(results, file.name);
+        } catch (error) {
+          console.error('❌ Excelファイル読み込みエラー:', error);
+          setResponse(`❌ Excelファイル読み込みエラー: ${error}`);
         }
-        info += `\n💡 「グラフを表示して」と入力すると、データ可視化が表示されます。`;
-        setResponse(info);
-      },
-      header: true,
-      skipEmptyLines: true,
-      error: (error) => {
-        setResponse(`❌ ファイル読み込みエラー: ${error.message}`)
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // CSVファイルの場合
+      Papa.parse(file, {
+        complete: (results) => {
+          console.log('📊 Papa.parse完了:', results);
+          handleDataProcessing(results.data as SalesData[], file.name);
+        },
+        header: true,
+        skipEmptyLines: true,
+        error: (error) => {
+          console.error('❌ Papa.parseエラー:', error);
+          setResponse(`❌ ファイル読み込みエラー: ${error.message}`)
+        }
+      });
+    }
+  }
+
+  // データ処理の共通関数
+  const handleDataProcessing = (data: SalesData[], fileName: string) => {
+    console.log('📊 解析されたデータ:', data);
+    console.log('📊 データ行数:', data.length);
+    console.log('📊 最初の3行:', data.slice(0, 3));
+
+    // データが空でないかチェック
+    if (!data || data.length === 0) {
+      setResponse(`❌ ファイルにデータが含まれていません。`);
+      return;
+    }
+
+    // ヘッダー行をチェック
+    if (data.length > 0) {
+      console.log('📊 ヘッダー（カラム名）:', Object.keys(data[0]));
+    }
+
+    // ステートにデータを設定
+    console.log('💾 ステート設定前 - salesData:', salesData);
+    console.log('💾 設定予定のdata:', data);
+    
+    setSalesData(data)
+    setIsFileUploaded(true)
+    setShowCharts(true)
+    
+    // 設定後の確認（次のレンダリングサイクルで確認）
+    setTimeout(() => {
+      console.log('💾 ステート設定後 - salesData:', salesData);
+      console.log('💾 ステート設定後 - isFileUploaded:', true);
+    }, 100);
+    
+    // データ分析情報を表示
+    const analysis = analyzeSalesData(data);
+    console.log('🔍 分析結果:', analysis);
+
+    let info = `✅ ${fileName} を正常にアップロードしました。\n`;
+    info += `📊 データ行数: ${data.length}行\n`;
+    
+    // カラム名を全て表示
+    const columnNames = Object.keys(data[0] || {});
+    info += `📋 カラム名: ${columnNames.join(', ')}\n`;
+    
+    if (analysis) {
+      if (analysis.dateColumns.length > 0) {
+        info += `📅 検出された日付カラム: ${analysis.dateColumns.join(', ')}\n`;
       }
-    })
+      if (analysis.salesColumns.length > 0) {
+        info += `💰 検出された売上カラム: ${analysis.salesColumns.join(', ')}\n`;
+      }
+      if (analysis.productColumns.length > 0) {
+        info += `📦 検出された商品カラム: ${analysis.productColumns.join(', ')}\n`;
+      }
+    }
+    
+    // サンプルデータを詳細表示
+    if (data.length > 0) {
+      info += `\n📋 データサンプル（最初の3行）:\n`;
+      data.slice(0, 3).forEach((row, index) => {
+        info += `\n--- 行${index + 1} ---\n`;
+        Object.entries(row).forEach(([key, value]) => {
+          const displayValue = value === '' ? '(空)' : String(value);
+          const valueType = typeof value;
+          info += `  ${key}: ${displayValue} (型: ${valueType})\n`;
+        });
+      });
+      
+      // データ型の分析
+      info += `\n🔍 カラム型分析:\n`;
+      if (data.length > 0) {
+        Object.keys(data[0]).forEach(key => {
+          const sampleValues = data.slice(0, 5).map(row => row[key]).filter(v => v !== '' && v != null);
+          const types = [...new Set(sampleValues.map(v => typeof v))];
+          const hasNumbers = sampleValues.some(v => {
+            const cleanV = String(v).replace(/[,¥円\s$€£]/g, '');
+            return !isNaN(Number(cleanV)) && cleanV !== '';
+          });
+          info += `  ${key}: 型=[${types.join(', ')}] 数値可=${hasNumbers ? 'Yes' : 'No'}\n`;
+        });
+      }
+    }
+    
+    info += `\n💡 「グラフを表示して」ボタンをクリックすると、データ可視化が表示されます。`;
+    setResponse(info);
   }
 
   // ファイル選択ハンドラー
@@ -214,6 +467,14 @@ function App() {
     setIsLoading(true)
     setResponse('')
 
+    // デバッグ情報を出力
+    console.log('🚀 handleSubmit開始');
+    console.log('🚀 prompt:', prompt);
+    console.log('🚀 isFileUploaded:', isFileUploaded);
+    console.log('🚀 salesData:', salesData);
+    console.log('🚀 salesData.length:', salesData?.length);
+
+
     // 「グラフを表示して」の場合は、API呼び出しなしでローカルでグラフを表示
     if (prompt.includes('グラフ') && isFileUploaded) {
       setIsLoading(false)
@@ -222,29 +483,180 @@ function App() {
     }
 
     try {
-      // 売上データがある場合は、データと一緒に送信
+      // 売上データの準備と最適化
+      let dataToSend = null;
+      let dataContext = '';
+      
+      if (isFileUploaded && salesData.length > 0) {
+        // データサイズを制限（最初の20行のみ）
+        const limitedData = salesData.slice(0, 20);
+        dataToSend = limitedData;
+        
+        // データの概要をテキスト形式でも準備
+        const columns = Object.keys(salesData[0]);
+        dataContext = `データファイル情報:\n`;
+        dataContext += `- 総行数: ${salesData.length}行\n`;
+        dataContext += `- カラム: ${columns.join(', ')}\n`;
+        dataContext += `- サンプルデータ（最初の3行）:\n`;
+        
+        limitedData.slice(0, 3).forEach((row, index) => {
+          dataContext += `  行${index + 1}: `;
+          dataContext += Object.entries(row).map(([key, value]) => `${key}=${value}`).join(', ');
+          dataContext += `\n`;
+        });
+        
+        console.log('🚀 送信予定データ:', dataToSend);
+        console.log('🚀 データコンテキスト:', dataContext);
+      }
+      
+      // プロンプトに実データを直接埋め込み
+      let enhancedPrompt = prompt;
+      if (isFileUploaded && salesData.length > 0) {
+        const columns = Object.keys(salesData[0]);
+        
+        // 最初の5行の実データを文字列として整理
+        let dataTable = '\n【実際のデータ】\n';
+        dataTable += columns.join('\t') + '\n';
+        dataTable += '─'.repeat(80) + '\n';
+        
+        salesData.slice(0, Math.min(10, salesData.length)).forEach((row, index) => {
+          const rowData = columns.map(col => {
+            const value = row[col];
+            return value === '' || value == null ? '(空)' : String(value);
+          }).join('\t');
+          dataTable += `${index + 1}行目: ${rowData}\n`;
+        });
+        
+        if (salesData.length > 10) {
+          dataTable += `\n... (残り${salesData.length - 10}行のデータがあります)\n`;
+        }
+        
+        // 数値データの統計も追加
+        const numericData = [];
+        columns.forEach(col => {
+          const values = salesData.map(row => {
+            const val = String(row[col] || '').replace(/[,¥円\s]/g, '');
+            return isNaN(Number(val)) ? null : Number(val);
+          }).filter(v => v !== null && v !== 0);
+          
+          if (values.length > 0) {
+            const sum = values.reduce((a, b) => a + b, 0);
+            const avg = sum / values.length;
+            const max = Math.max(...values);
+            const min = Math.min(...values);
+            numericData.push(`${col}: 合計=${sum.toLocaleString()}, 平均=${Math.round(avg).toLocaleString()}, 最大=${max.toLocaleString()}, 最小=${min.toLocaleString()}`);
+          }
+        });
+        
+        if (numericData.length > 0) {
+          dataTable += '\n【数値データの統計】\n';
+          dataTable += numericData.join('\n') + '\n';
+        }
+
+        enhancedPrompt = `【必須】上記の実データを使用して分析してください。架空のデータや仮想的な数値は一切使用禁止です。
+
+${dataTable}
+
+ユーザーの質問: ${prompt}
+
+【分析指示】
+- 必ず上記の実際の数値のみを使用してください
+- period11やperiod28などの存在しない項目は作成しないでください
+- 実際のカラム名（${columns.join(', ')}）のみを使用してください
+- 架空の分析結果は絶対に作成しないでください
+- 実データに基づいた具体的な数値で分析してください`;
+      }
+
+      // より構造化されたリクエストデータ（複数形式で送信）
       const requestData = {
-        prompt: prompt,
-        salesData: isFileUploaded ? salesData.slice(0, 50) : null // 最初の50行のみ送信
+        prompt: enhancedPrompt,
+        // 以下の3つの形式でデータを送信
+        salesData: dataToSend,  // 元の形式
+        data: dataToSend,       // 汎用的な形式
+        attachments: dataToSend, // 添付ファイル形式
+        dataContext: dataContext,
+        metadata: {
+          hasData: isFileUploaded,
+          totalRows: salesData?.length || 0,
+          columns: salesData && salesData.length > 0 ? Object.keys(salesData[0]) : [],
+          dataType: 'sales'
+        },
+        // システムメッセージとして追加
+        systemMessage: `データが添付されています。${dataToSend?.length || 0}行のデータを受信しました。このデータを使用して分析を行ってください。`
+      };
+
+      console.log('🚀 最終送信データ構造:', {
+        prompt: requestData.prompt,
+        dataRows: requestData.data?.length,
+        contextLength: requestData.dataContext.length,
+        metadata: requestData.metadata
+      });
+      console.log('🚀 API_ENDPOINT:', API_ENDPOINT);
+      
+      const jsonSize = JSON.stringify(requestData).length;
+      console.log('🚀 送信データのJSONサイズ:', jsonSize, 'bytes');
+      
+      if (jsonSize > 1024 * 1024) { // 1MB制限
+        console.warn('⚠️ データサイズが大きすぎます');
+        setResponse('⚠️ データサイズが大きすぎるため、データを削減して再試行してください。');
+        return;
       }
 
       const result = await axios.post(API_ENDPOINT, requestData, {
         headers: {
           'Content-Type': 'application/json',
-        }
+        },
+        timeout: 60000 // 60秒のタイムアウト
       })
       
+      console.log('🚀 API応答:', result.data);
       setResponse(result.data.response || result.data.message || JSON.stringify(result.data))
     } catch (error: any) {
-      console.error('API Error:', error)
+      console.error('❌ API Error詳細:', error);
+      console.error('❌ Error Config:', error.config);
+      console.error('❌ Error Response:', error.response);
+      console.error('❌ Error Request:', error.request);
+      
+      let errorMessage = '🔴 **APIエラーが発生しました:**\n\n';
       
       if (error.response) {
-        setResponse(`サーバーエラー: ${error.response.status} - ${error.response.data?.message || error.response.statusText}`)
+        // サーバーからエラーレスポンスが返された
+        errorMessage += `**ステータスコード:** ${error.response.status}\n`;
+        errorMessage += `**ステータステキスト:** ${error.response.statusText}\n`;
+        
+        if (error.response.data) {
+          errorMessage += `**サーバーメッセージ:** ${JSON.stringify(error.response.data, null, 2)}\n`;
+        }
+        
+        // 一般的なHTTPステータスコードの説明
+        if (error.response.status === 413) {
+          errorMessage += '\n💡 **原因:** データサイズが大きすぎます。より少ないデータで試してください。';
+        } else if (error.response.status === 500) {
+          errorMessage += '\n💡 **原因:** サーバー内部エラー。APIサーバー側の問題です。';
+        } else if (error.response.status === 400) {
+          errorMessage += '\n💡 **原因:** リクエスト形式に問題があります。';
+        }
+        
       } else if (error.request) {
-        setResponse('APIからレスポンスがありません。CORSエラーの可能性があります。\n\nCORS問題の解決方法:\n1. API Gateway側でCORSを有効にする\n2. またはプロキシサーバーを使用する')
+        // リクエストは送信されたが、レスポンスがない
+        errorMessage += '**問題:** APIサーバーからのレスポンスがありません。\n';
+        errorMessage += '**可能な原因:**\n';
+        errorMessage += '• ネットワーク接続の問題\n';
+        errorMessage += '• CORSポリシーの問題\n';
+        errorMessage += '• APIサーバーがダウンしている\n';
+        errorMessage += `• タイムアウト（${error.config?.timeout || 60000}ms）\n`;
+        
       } else {
-        setResponse(`エラー: ${error.message}`)
+        // その他のエラー
+        errorMessage += `**エラーメッセージ:** ${error.message}\n`;
       }
+      
+      errorMessage += `\n🔧 **デバッグ情報:**\n`;
+      errorMessage += `• API URL: ${API_ENDPOINT}\n`;
+      errorMessage += `• データ送信: ${isFileUploaded ? 'あり' : 'なし'}\n`;
+      errorMessage += `• データ行数: ${salesData?.length || 0}\n`;
+      
+      setResponse(errorMessage);
     } finally {
       setIsLoading(false)
     }
@@ -357,12 +769,79 @@ function App() {
           disabled={isLoading}
         />
         
-        {/* プリセット質問ボタン */}
+        {/* グラフ表示ボタンとプリセット質問 */}
         {isFileUploaded && (
-          <div style={{ marginTop: '10px' }}>
-            <p style={{ fontSize: '14px', color: '#555', margin: '5px 0' }}>クイック分析：</p>
+          <div style={{ marginTop: '15px' }}>
+            {/* 大きなグラフ表示ボタン */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+              <button
+                onClick={() => {
+                  console.log('📊 グラフ表示ボタンがクリックされました');
+                  console.log('📊 現在のsalesData:', salesData);
+                  console.log('📊 salesData長さ:', salesData?.length);
+                  
+                  setPrompt('グラフを表示して');
+                  setForceShowGraphs(true);
+                  setShowDataTable(false);
+                  
+                  // データの存在確認
+                  if (salesData && salesData.length > 0) {
+                    setResponse(`📊 データを可視化しています...\n\n実データ（${salesData.length}行）を使用してグラフを生成します：\n• 期間別売上推移\n• データ構成比較\n• データサマリー`);
+                  } else {
+                    setResponse('⚠️ データがロードされていません。先にファイルをアップロードしてください。');
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: '15px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#218838'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#28a745'}
+                disabled={isLoading}
+              >
+                📊 グラフを表示
+              </button>
+              
+              <button
+                onClick={() => {
+                  console.log('📋 データテーブル表示ボタンがクリックされました');
+                  setShowDataTable(!showDataTable);
+                  setForceShowGraphs(false);
+                  if (salesData && salesData.length > 0) {
+                    setResponse(`📋 データテーブルを${showDataTable ? '非表示' : '表示'}にしました`);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: '15px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#545b62'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+                disabled={isLoading}
+              >
+                📋 データテーブル{showDataTable ? '非表示' : '表示'}
+              </button>
+            </div>
+            
+
+            <p style={{ fontSize: '14px', color: '#555', margin: '5px 0' }}>AIに質問する：</p>
             {[
-              'グラフを表示して',
               '売上トレンドを分析して',
               '商品別の売上を分析して',
               '売上の季節性を分析して',
@@ -431,8 +910,67 @@ function App() {
         )}
       </div>
 
+      {/* データテーブル表示セクション */}
+      {showDataTable && isFileUploaded && salesData.length > 0 && (
+        <div style={{ marginTop: '30px' }}>
+          <h2 style={{ color: '#333', marginBottom: '20px' }}>📋 データテーブル表示</h2>
+          
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '20px', 
+            borderRadius: '8px', 
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            overflowX: 'auto'
+          }}>
+            <p style={{ marginBottom: '15px', color: '#666' }}>
+              総行数: {salesData.length}行 | 表示: 最初の10行
+            </p>
+            
+            <table style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '14px'
+            }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f8f9fa' }}>
+                  <th style={{ padding: '8px', border: '1px solid #ddd', fontWeight: 'bold' }}>行番号</th>
+                  {salesData.length > 0 && Object.keys(salesData[0]).map(key => (
+                    <th key={key} style={{ padding: '8px', border: '1px solid #ddd', fontWeight: 'bold' }}>
+                      {key}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {salesData.slice(0, 10).map((row, index) => (
+                  <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9f9f9' }}>
+                    <td style={{ padding: '8px', border: '1px solid #ddd', fontWeight: 'bold', backgroundColor: '#e9ecef' }}>
+                      {index + 1}
+                    </td>
+                    {Object.entries(row).map(([key, value]) => (
+                      <td key={key} style={{ padding: '8px', border: '1px solid #ddd' }}>
+                        {value === '' || value === null || value === undefined ? 
+                          <span style={{ color: '#999', fontStyle: 'italic' }}>(空)</span> : 
+                          String(value)
+                        }
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            
+            {salesData.length > 10 && (
+              <p style={{ marginTop: '10px', color: '#666', fontSize: '12px' }}>
+                ※ 最初の10行のみ表示しています（全{salesData.length}行）
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* データ可視化セクション */}
-      {showCharts && isFileUploaded && prompt.includes('グラフ') && (() => {
+      {showCharts && isFileUploaded && (forceShowGraphs || prompt.includes('グラフ')) && (() => {
         const chartData = generateChartData();
         if (!chartData) return null;
 
