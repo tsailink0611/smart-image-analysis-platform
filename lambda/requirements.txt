@@ -1,0 +1,19 @@
+# AWS Lambda Requirements for Strategic AI Platform
+# Python 3.12 Runtime
+
+# Core AWS SDK (通常はLambda環境に含まれています)
+boto3>=1.34.0
+
+# JSON処理（標準ライブラリ - 記載は参考用）
+# json (built-in)
+
+# ログ処理（標準ライブラリ - 記載は参考用）  
+# logging (built-in)
+
+# 型ヒント（標準ライブラリ - 記載は参考用）
+# typing (built-in)
+
+# 注意：
+# - boto3 はAWS Lambda環境に標準でインストールされています
+# - 他の依存関係は標準ライブラリのみのため、追加インストール不要
+# - このファイルは記録用途として保持しています
