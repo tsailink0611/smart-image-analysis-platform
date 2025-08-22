@@ -189,24 +189,62 @@ function App() {
 
     // 日付別データを集計（全データを処理）
     const dailyMap = new Map();
+    
+    // 実際のデータ行をループ（行番号ではなく実データを使用）
     salesData.forEach((row, index) => {
-      // 日付の取得と正規化
-      let date = String(row[dateCol] || `データ${index + 1}`);
+      // 各列の値を確認
+      const allValues = Object.entries(row);
+      console.log(`行${index} の全データ:`, allValues);
       
-      // Excel日付シリアル値の処理
-      if (!isNaN(Number(date)) && Number(date) > 40000 && Number(date) < 50000) {
-        const excelDate = new Date((Number(date) - 25569) * 86400 * 1000);
-        date = `${excelDate.getMonth() + 1}/${excelDate.getDate()}`;
+      // 日付の取得（曜日列も含む）
+      let dateValue = row[dateCol];
+      
+      // 日付が曜日の場合、インデックスを使用
+      const dayOfWeeks = ['日', '月', '火', '水', '木', '金', '土'];
+      let displayDate = String(dateValue || `データ${index + 1}`);
+      
+      if (dayOfWeeks.includes(displayDate)) {
+        // 曜日の場合は、曜日名をそのまま使用
+        displayDate = displayDate;
+      } else if (!isNaN(Number(dateValue)) && Number(dateValue) > 40000 && Number(dateValue) < 50000) {
+        // Excel日付シリアル値の処理
+        const excelDate = new Date((Number(dateValue) - 25569) * 86400 * 1000);
+        displayDate = `${excelDate.getMonth() + 1}/${excelDate.getDate()}`;
+      } else if (!isNaN(Number(dateValue)) && Number(dateValue) < 32) {
+        // 単純な日付数値（1-31）の場合
+        displayDate = `${dateValue}日`;
       }
       
-      const salesValue = row[salesCol];
+      // 売上値の取得（複数の売上列から適切な値を選択）
+      let salesValue = row[salesCol];
+      
+      // もし売上値が無効な場合、他の数値列を探す
+      if (!salesValue || salesValue === '' || parseNumber(salesValue) === 0) {
+        // 全ての列から数値を探す
+        for (const key of Object.keys(row)) {
+          const val = row[key];
+          const num = parseNumber(val);
+          if (num > 0 && key !== dateCol) {
+            salesValue = val;
+            console.log(`行${index}: 代替売上列 "${key}" を使用: ${val}`);
+            break;
+          }
+        }
+      }
+      
       const sales = parseNumber(salesValue);
       
       if (index < 10) {
-        console.log(`行${index}:`, { date, salesValue, sales, originalDate: row[dateCol] });
+        console.log(`行${index}:`, { 
+          displayDate, 
+          salesValue, 
+          sales, 
+          originalDate: row[dateCol],
+          allColumns: Object.keys(row)
+        });
       }
       
-      const shortDate = date.length > 15 ? date.substring(0, 15) : date;
+      const shortDate = displayDate.length > 15 ? displayDate.substring(0, 15) : displayDate;
       
       if (dailyMap.has(shortDate)) {
         dailyMap.set(shortDate, dailyMap.get(shortDate) + sales);
@@ -324,40 +362,68 @@ function App() {
             console.log(`  行${index}:`, row);
           });
           
-          // 複数行ヘッダーに対応したヘッダー行検出
+          // 複数行ヘッダーに対応したヘッダー行検出（改善版）
           let headerRowIndex = 0;
           let headers: string[] = [];
+          let multiHeaders: string[][] = [];
           
-          // 最初の数行を調べて、最も適切なヘッダー行を見つける
-          for (let i = 0; i < Math.min(8, jsonData.length); i++) {
+          // マルチヘッダーを検出（最初の行が「売上」のような大項目の可能性）
+          let firstRowHasMainHeader = false;
+          if (jsonData.length > 1) {
+            const firstRow = jsonData[0] as any[];
+            const secondRow = jsonData[1] as any[];
+            
+            // 最初の行に少数の文字列があり、2行目により多くの文字列がある場合
+            const firstRowText = firstRow.filter(cell => cell && String(cell).trim() !== '').length;
+            const secondRowText = secondRow.filter(cell => cell && String(cell).trim() !== '').length;
+            
+            if (firstRowText < secondRowText && firstRowText > 0) {
+              firstRowHasMainHeader = true;
+              multiHeaders.push(firstRow);
+              console.log('📊 マルチヘッダー検出: 行0が大項目ヘッダー:', firstRow);
+            }
+          }
+          
+          // 実際のヘッダー行を探す（マルチヘッダーの場合は2行目から）
+          const startIndex = firstRowHasMainHeader ? 1 : 0;
+          
+          for (let i = startIndex; i < Math.min(8, jsonData.length); i++) {
             const row = jsonData[i] as any[];
             if (!row || row.length === 0) continue;
             
-            // 数値ではなく文字列が多い行をヘッダーとして選択
+            // 曜日パターンをチェック
+            const hasDayOfWeek = row.some(cell => {
+              const str = String(cell).trim();
+              return ['日', '月', '火', '水', '木', '金', '土', 
+                      '日曜', '月曜', '火曜', '水曜', '木曜', '金曜', '土曜',
+                      'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].includes(str);
+            });
+            
+            // 数値ではなく文字列が多い行、または曜日を含む行をヘッダーとして選択
             const textCells = row.filter(cell => {
               if (!cell) return false;
               const str = String(cell).trim();
               if (str === '') return false;
-              // 数値でない場合は文字列と判断（改善版）
-              const cleanedStr = str.replace(/[,¥円\s]/g, '');
-              // 日付パターンも文字列として扱う
-              const isDatePattern = /^\d{1,4}[\/\-]\d{1,2}[\/\-]\d{1,4}$/.test(str);
-              return isNaN(Number(cleanedStr)) || isDatePattern;
+              const cleanedStr = str.replace(/[,¥円\s%]/g, '');
+              return isNaN(Number(cleanedStr)) || hasDayOfWeek;
             });
             
-            console.log(`行${i}: 文字列セル数=${textCells.length}/${row.length}`, textCells);
+            console.log(`行${i}: 文字列セル数=${textCells.length}/${row.length}, 曜日含む=${hasDayOfWeek}`, textCells);
             
-            // 30%以上が文字列の行をヘッダーとして選択（しきい値を下げる）
-            if (textCells.length >= row.length * 0.3 && textCells.length >= 2) {
+            // 曜日を含む行、または30%以上が文字列の行をヘッダーとして選択
+            if (hasDayOfWeek || (textCells.length >= row.length * 0.3 && textCells.length >= 2)) {
               headers = row.map((cell, colIndex) => {
                 if (cell && String(cell).trim() !== '') {
                   return String(cell).trim();
+                } else if (firstRowHasMainHeader && multiHeaders[0][colIndex]) {
+                  // マルチヘッダーの場合、上の行の値を使う
+                  return String(multiHeaders[0][colIndex]).trim();
                 } else {
                   return `列${colIndex + 1}`;
                 }
               });
               headerRowIndex = i;
-              console.log(`📊 ヘッダー行として行${i}を選択（文字列率: ${Math.round(textCells.length/row.length*100)}%）:`, headers);
+              console.log(`📊 ヘッダー行として行${i}を選択:`, headers);
               break;
             }
           }
