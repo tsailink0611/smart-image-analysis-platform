@@ -18,28 +18,72 @@ interface SalesData {
 const analyzeSalesData = (data: SalesData[]) => {
   if (!data || data.length === 0) return null;
 
-  // 日付別売上を集計（日付カラムを自動検出）
-  const dateColumns = Object.keys(data[0]).filter(key => 
-    key.toLowerCase().includes('date') || 
-    key.toLowerCase().includes('日付') ||
-    key.toLowerCase().includes('年月')
-  );
+  const keys = Object.keys(data[0]);
+  console.log('📊 利用可能な列:', keys);
+
+  // 日付カラムを自動検出（改善版）
+  const dateColumns = keys.filter(key => {
+    const lowerKey = key.toLowerCase();
+    const sample = String(data[0][key]);
+    
+    // キーワードマッチング
+    const keywordMatch = lowerKey.includes('date') || 
+      lowerKey.includes('日付') ||
+      lowerKey.includes('年月') ||
+      lowerKey.includes('日') ||
+      lowerKey.includes('月') ||
+      lowerKey.includes('期間') ||
+      lowerKey.includes('time');
+    
+    // 日付フォーマットのパターンマッチング
+    const datePattern = /^\d{1,4}[\/\-年]\d{1,2}[\/\-月]|\d{1,2}[\/\-日]|^\d{1,2}$/.test(sample);
+    
+    return keywordMatch || datePattern;
+  });
   
-  // 売上カラムを自動検出
-  const salesColumns = Object.keys(data[0]).filter(key => 
-    key.toLowerCase().includes('sales') || 
-    key.toLowerCase().includes('売上') ||
-    key.toLowerCase().includes('金額') ||
-    key.toLowerCase().includes('amount')
-  );
+  // 売上カラムを自動検出（改善版）
+  const salesColumns = keys.filter(key => {
+    const lowerKey = key.toLowerCase();
+    
+    // キーワードマッチング
+    const keywordMatch = lowerKey.includes('sales') || 
+      lowerKey.includes('売上') ||
+      lowerKey.includes('金額') ||
+      lowerKey.includes('amount') ||
+      lowerKey.includes('実績') ||
+      lowerKey.includes('予算') ||
+      lowerKey.includes('value') ||
+      lowerKey.includes('収益') ||
+      lowerKey.includes('合計');
+    
+    // 数値データチェック（複数行確認）
+    let numericCount = 0;
+    for (let i = 0; i < Math.min(5, data.length); i++) {
+      const value = String(data[i][key]).replace(/[,¥円\s]/g, '');
+      if (!isNaN(parseFloat(value)) && value !== '') {
+        numericCount++;
+      }
+    }
+    
+    return keywordMatch || (numericCount >= Math.min(3, data.length));
+  });
 
   // 商品カラムを自動検出
-  const productColumns = Object.keys(data[0]).filter(key => 
-    key.toLowerCase().includes('product') || 
-    key.toLowerCase().includes('商品') ||
-    key.toLowerCase().includes('item') ||
-    key.toLowerCase().includes('名前')
-  );
+  const productColumns = keys.filter(key => {
+    const lowerKey = key.toLowerCase();
+    return lowerKey.includes('product') || 
+      lowerKey.includes('商品') ||
+      lowerKey.includes('item') ||
+      lowerKey.includes('名前') ||
+      lowerKey.includes('カテゴリ') ||
+      lowerKey.includes('分類');
+  });
+
+  console.log('📊 検出結果:', {
+    日付列: dateColumns,
+    売上列: salesColumns,
+    商品列: productColumns
+  });
 
   return {
     dateColumns,
@@ -143,14 +187,24 @@ function App() {
       return result;
     };
 
-    // 日付別データを集計（最初の15件を表示）
+    // 日付別データを集計（全データを処理）
     const dailyMap = new Map();
-    salesData.slice(0, 15).forEach((row, index) => {
-      const date = String(row[dateCol] || `データ${index + 1}`);
+    salesData.forEach((row, index) => {
+      // 日付の取得と正規化
+      let date = String(row[dateCol] || `データ${index + 1}`);
+      
+      // Excel日付シリアル値の処理
+      if (!isNaN(Number(date)) && Number(date) > 40000 && Number(date) < 50000) {
+        const excelDate = new Date((Number(date) - 25569) * 86400 * 1000);
+        date = `${excelDate.getMonth() + 1}/${excelDate.getDate()}`;
+      }
+      
       const salesValue = row[salesCol];
       const sales = parseNumber(salesValue);
       
-      console.log(`行${index}:`, { date, salesValue, sales, parseResult: parseNumber(salesValue) }); // デバッグ用
+      if (index < 10) {
+        console.log(`行${index}:`, { date, salesValue, sales, originalDate: row[dateCol] });
+      }
       
       const shortDate = date.length > 15 ? date.substring(0, 15) : date;
       
@@ -245,7 +299,13 @@ function App() {
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          // より詳細な読み取りオプションを設定
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+            header: 1,
+            raw: false,     // 値を文字列として取得
+            dateNF: 'yyyy/mm/dd',  // 日付フォーマット
+            defval: ''      // 空セルのデフォルト値
+          });
           
           console.log('📊 Excel解析完了:', jsonData);
           console.log('📊 全シート名:', workbook.SheetNames);
@@ -278,14 +338,17 @@ function App() {
               if (!cell) return false;
               const str = String(cell).trim();
               if (str === '') return false;
-              // 数値でない場合は文字列と判断
-              return isNaN(Number(str.replace(/[,¥円\s]/g, '')));
+              // 数値でない場合は文字列と判断（改善版）
+              const cleanedStr = str.replace(/[,¥円\s]/g, '');
+              // 日付パターンも文字列として扱う
+              const isDatePattern = /^\d{1,4}[\/\-]\d{1,2}[\/\-]\d{1,4}$/.test(str);
+              return isNaN(Number(cleanedStr)) || isDatePattern;
             });
             
             console.log(`行${i}: 文字列セル数=${textCells.length}/${row.length}`, textCells);
             
-            // 50%以上が文字列の行をヘッダーとして選択
-            if (textCells.length >= row.length * 0.5 && textCells.length >= 3) {
+            // 30%以上が文字列の行をヘッダーとして選択（しきい値を下げる）
+            if (textCells.length >= row.length * 0.3 && textCells.length >= 2) {
               headers = row.map((cell, colIndex) => {
                 if (cell && String(cell).trim() !== '') {
                   return String(cell).trim();
@@ -488,8 +551,8 @@ function App() {
       let dataContext = '';
       
       if (isFileUploaded && salesData.length > 0) {
-        // データサイズを制限（最初の20行のみ）
-        const limitedData = salesData.slice(0, 20);
+        // データサイズを制限（最初の50行に増やす）
+        const limitedData = salesData.slice(0, 50);
         dataToSend = limitedData;
         
         // データの概要をテキスト形式でも準備
