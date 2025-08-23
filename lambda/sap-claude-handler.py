@@ -22,7 +22,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         sales_data = (
             body.get('salesData') or 
             body.get('data') or 
-            body.get('attachments') or
+            body.get('attachments') or 
             []
         )
         
@@ -97,10 +97,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error: {str(e)}")
         return response_builder(400, f"JSONデータの解析に失敗しました: {str(e)}")
-    
+        
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         return response_builder(500, f"サーバー内部エラー: {str(e)}")
+
 
 def build_analysis_prompt(user_prompt: str, sales_data: List[Dict], data_context: str, metadata: Dict) -> str:
     """
@@ -194,6 +195,7 @@ def build_analysis_prompt(user_prompt: str, sales_data: List[Dict], data_context
     
     return base_prompt
 
+
 def response_builder(status_code: int, body: Any) -> Dict[str, Any]:
     """
     CORS対応レスポンスビルダー
@@ -214,7 +216,7 @@ def response_builder(status_code: int, body: Any) -> Dict[str, Any]:
         'body': json.dumps(response_body, ensure_ascii=False, indent=2)
     }
 
-# OPTIONS リクエスト対応（CORS preflight）
+
 def handle_options() -> Dict[str, Any]:
     """
     CORS preflight リクエスト処理
