@@ -1,17 +1,51 @@
 import boto3
 import json
 import logging
+import uuid
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 # ログ設定
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+def estimate_tokens(text: str) -> int:
+    """テキストのトークン数を概算（1トークン≈4文字として計算）"""
+    return max(1, len(text) // 4)
+
+def calculate_cost(tokens_in: int, tokens_out: int) -> float:
+    """Claude 3 Sonnetの料金計算"""
+    # 入力: $0.003 per 1K tokens, 出力: $0.015 per 1K tokens
+    cost_input = (tokens_in / 1000) * 0.003
+    cost_output = (tokens_out / 1000) * 0.015
+    return cost_input + cost_output
+
+def log_usage(tenant_id: str, request_id: str, action: str, tokens_in: int, tokens_out: int, cost: float, duration_ms: int, data_rows: int):
+    """使用量をCloudWatchログに記録"""
+    usage_log = {
+        "type": "AI_USAGE",
+        "tenant_id": tenant_id,
+        "request_id": request_id,
+        "action": action,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+        "cost_usd": round(cost, 6),
+        "duration_ms": duration_ms,
+        "data_rows": data_rows,
+        "timestamp": datetime.utcnow().isoformat(),
+        "model": "claude-3-sonnet-20240229"
+    }
+    logger.info(f"[USAGE_TRACKING] {json.dumps(usage_log)}")
+    return usage_log
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Strategic AI Platform - Lambda関数
     フロントエンドから送信されたデータを処理し、Amazon BedrockのClaude 3で分析
     """
+    # 使用量追跡用の変数
+    request_id = str(uuid.uuid4())
+    start_time = datetime.utcnow()
     
     try:
         # 1. リクエスト解析
@@ -87,6 +121,25 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         logger.info("Bedrock response received successfully")
         
+        # 使用量追跡の計算
+        tenant_id = body.get('tenantId', 'default')
+        tokens_in = estimate_tokens(enhanced_prompt)
+        tokens_out = estimate_tokens(ai_response)
+        cost = calculate_cost(tokens_in, tokens_out)
+        duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+        
+        # 使用量をログに記録
+        usage_data = log_usage(
+            tenant_id=tenant_id,
+            request_id=request_id,
+            action="sales_analysis",
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            cost=cost,
+            duration_ms=duration_ms,
+            data_rows=len(sales_data) if sales_data else 0
+        )
+        
         # 7. レスポンス形式判定（JSON または Markdown）
         response_format = body.get('responseFormat', 'markdown')  # デフォルトはmarkdown
         
@@ -97,7 +150,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'response': structured_response,
                 'message': '分析が完了しました（JSON形式）',
                 'dataProcessed': len(sales_data) if sales_data else 0,
-                'format': 'json'
+                'format': 'json',
+                'usage': {
+                    'tokens_in': tokens_in,
+                    'tokens_out': tokens_out,
+                    'cost_usd': round(cost, 6),
+                    'duration_ms': duration_ms,
+                    'request_id': request_id
+                }
             })
         else:
             # 従来のMarkdown形式レスポンス
@@ -105,7 +165,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'response': ai_response,
                 'message': '分析が完了しました',
                 'dataProcessed': len(sales_data) if sales_data else 0,
-                'format': 'markdown'
+                'format': 'markdown',
+                'usage': {
+                    'tokens_in': tokens_in,
+                    'tokens_out': tokens_out,
+                    'cost_usd': round(cost, 6),
+                    'duration_ms': duration_ms,
+                    'request_id': request_id
+                }
             })
         
     except json.JSONDecodeError as e:
