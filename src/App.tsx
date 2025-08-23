@@ -3,6 +3,7 @@ import axios from 'axios'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import ColumnMappingLearning from './components/ColumnMappingLearning'
 
 // 開発環境ではプロキシ経由でアクセス
 const API_ENDPOINT = import.meta.env.DEV ? "/api" : "https://ylgrnwffx6.execute-api.us-east-1.amazonaws.com";
@@ -103,6 +104,8 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [forceShowGraphs, setForceShowGraphs] = useState(false)
   const [showDataTable, setShowDataTable] = useState(false)
+  const [showColumnMapping, setShowColumnMapping] = useState(false)
+  const [columnMappings, setColumnMappings] = useState<Record<string, string>>({})
 
   // 実際のデータからチャート用データを生成
   const generateChartData = () => {
@@ -1031,8 +1034,34 @@ ${dataTable}
                 📋 データテーブル{showDataTable ? '非表示' : '表示'}
               </button>
             </div>
-            
 
+            {/* 学習ボタンを追加 */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <button
+                onClick={() => {
+                  console.log('📚 データ学習ボタンがクリックされました');
+                  setShowColumnMapping(true);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '15px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c82333'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
+                disabled={isLoading}
+              >
+                📚 データを学習
+              </button>
+            </div>
+            
             <p style={{ fontSize: '14px', color: '#555', margin: '5px 0' }}>AIに質問する：</p>
             {[
               '売上トレンドを分析して',
@@ -1276,6 +1305,24 @@ ${dataTable}
           </div>
         );
       })()}
+
+      {/* カラムマッピング学習モーダル */}
+      {showColumnMapping && isFileUploaded && salesData.length > 0 && (
+        <ColumnMappingLearning
+          columns={Object.keys(salesData[0])}
+          onSave={(mappings) => {
+            console.log('📚 学習データ保存:', mappings);
+            setColumnMappings(mappings);
+            setShowColumnMapping(false);
+            setResponse(`✅ カラムマッピングを学習しました: ${JSON.stringify(mappings, null, 2)}`);
+            // TODO: Supabaseに保存
+          }}
+          onCancel={() => {
+            console.log('📚 学習をキャンセル');
+            setShowColumnMapping(false);
+          }}
+        />
+      )}
     </div>
   )
 }
