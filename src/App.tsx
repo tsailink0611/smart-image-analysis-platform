@@ -590,6 +590,70 @@ function App() {
     if (file) processFile(file);
   }
 
+  // JSON形式テスト用関数
+  const handleSubmitJSON = async () => {
+    if (!prompt.trim()) return
+
+    setIsLoading(true)
+    setResponse('')
+
+    console.log('🧪 JSON形式テスト開始');
+    console.log('🧪 prompt:', prompt);
+    console.log('🧪 salesData:', salesData);
+
+    try {
+      const requestBody = {
+        prompt: prompt,
+        salesData: salesData,
+        dataContext: `データファイル情報: 
+- 総行数: ${salesData?.length || 0}行
+- 項目: ${salesData && salesData.length > 0 ? Object.keys(salesData[0]).join(', ') : 'なし'}`,
+        metadata: {
+          columns: salesData && salesData.length > 0 ? Object.keys(salesData[0]) : [],
+          totalRows: salesData?.length || 0
+        },
+        responseFormat: 'json'  // JSON形式を指定
+      };
+
+      console.log('🧪 送信データ:', requestBody);
+
+      const response = await axios.post(API_ENDPOINT, requestBody, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('🧪 JSON形式レスポンス:', response.data);
+      
+      // 構造化されたJSONレスポンスを表示
+      if (response.data.response && typeof response.data.response === 'object') {
+        const jsonResponse = response.data.response;
+        let displayText = `📋 分析結果 (JSON形式)\n\n`;
+        displayText += `【概要】\n${jsonResponse.summary || 'サマリーなし'}\n\n`;
+        
+        if (jsonResponse.key_insights && jsonResponse.key_insights.length > 0) {
+          displayText += `【主な発見】\n${jsonResponse.key_insights.map(insight => `• ${insight}`).join('\n')}\n\n`;
+        }
+        
+        if (jsonResponse.recommendations && jsonResponse.recommendations.length > 0) {
+          displayText += `【推奨事項】\n${jsonResponse.recommendations.map(rec => `• ${rec}`).join('\n')}\n\n`;
+        }
+        
+        displayText += `【データ分析情報】\n処理済みレコード数: ${jsonResponse.data_analysis?.total_records || 0}件\n\n`;
+        displayText += `詳細は開発者コンソールで確認してください。`;
+        
+        setResponse(displayText);
+      } else {
+        setResponse(response.data.response || 'JSON形式での応答がありませんでした');
+      }
+    } catch (error: any) {
+      console.error('❌ JSON形式テストエラー:', error);
+      setResponse(`**JSON形式テストエラー:** ${error.response?.data?.message || error.message}`);
+    }
+
+    setIsLoading(false);
+  };
+
   const handleSubmit = async () => {
     if (!prompt.trim()) return
 
@@ -997,24 +1061,45 @@ ${dataTable}
         )}
       </div>
 
-      <button
-        onClick={handleSubmit}
-        disabled={isLoading || !prompt.trim()}
-        style={{
-          width: '100%',
-          padding: '12px 24px',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          color: 'white',
-          backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#007bff',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
-          transition: 'background-color 0.3s'
-        }}
-      >
-        {isLoading ? '処理中...' : '送信'}
-      </button>
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <button
+          onClick={handleSubmit}
+          disabled={isLoading || !prompt.trim()}
+          style={{
+            flex: 1,
+            padding: '12px 24px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            color: 'white',
+            backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#007bff',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.3s'
+          }}
+        >
+          {isLoading ? '処理中...' : '送信'}
+        </button>
+        
+        <button
+          onClick={handleSubmitJSON}
+          disabled={isLoading || !prompt.trim()}
+          style={{
+            flex: 1,
+            padding: '12px 24px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            color: 'white',
+            backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#28a745',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.3s'
+          }}
+        >
+          🧪 JSON形式テスト
+        </button>
+      </div>
 
       <div style={{
         marginTop: '30px',

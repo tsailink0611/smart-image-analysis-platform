@@ -87,12 +87,26 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         logger.info("Bedrock response received successfully")
         
-        # 7. 成功レスポンス
-        return response_builder(200, {
-            'response': ai_response,
-            'message': '分析が完了しました',
-            'dataProcessed': len(sales_data) if sales_data else 0
-        })
+        # 7. レスポンス形式判定（JSON または Markdown）
+        response_format = body.get('responseFormat', 'markdown')  # デフォルトはmarkdown
+        
+        if response_format == 'json':
+            # JSON形式での構造化レスポンス
+            structured_response = parse_ai_response_to_json(ai_response, sales_data)
+            return response_builder(200, {
+                'response': structured_response,
+                'message': '分析が完了しました（JSON形式）',
+                'dataProcessed': len(sales_data) if sales_data else 0,
+                'format': 'json'
+            })
+        else:
+            # 従来のMarkdown形式レスポンス
+            return response_builder(200, {
+                'response': ai_response,
+                'message': '分析が完了しました',
+                'dataProcessed': len(sales_data) if sales_data else 0,
+                'format': 'markdown'
+            })
         
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error: {str(e)}")
@@ -194,6 +208,71 @@ def build_analysis_prompt(user_prompt: str, sales_data: List[Dict], data_context
     base_prompt += "\n【分析結果】\n"
     
     return base_prompt
+
+
+def parse_ai_response_to_json(ai_response: str, sales_data: List[Dict]) -> Dict[str, Any]:
+    """
+    AI応答をJSON形式に構造化
+    """
+    try:
+        # 基本的な構造化情報
+        structured = {
+            'summary': '',
+            'key_insights': [],
+            'recommendations': [],
+            'data_analysis': {
+                'total_records': len(sales_data) if sales_data else 0,
+                'metrics': {}
+            },
+            'raw_response': ai_response
+        }
+        
+        # シンプルな解析（改行で分割して構造化）
+        lines = ai_response.split('\n')
+        current_section = 'summary'
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # セクションの判定
+            if '分析結果' in line or 'まとめ' in line:
+                current_section = 'summary'
+            elif '提案' in line or '改善' in line or 'おすすめ' in line:
+                current_section = 'recommendations'
+            elif '特徴' in line or 'ポイント' in line or '傾向' in line:
+                current_section = 'key_insights'
+            elif line.startswith('- ') or line.startswith('• '):
+                # リスト項目の処理
+                clean_line = line[2:].strip()
+                if current_section == 'key_insights':
+                    structured['key_insights'].append(clean_line)
+                elif current_section == 'recommendations':
+                    structured['recommendations'].append(clean_line)
+            elif len(line) > 20 and current_section == 'summary' and not structured['summary']:
+                structured['summary'] = line
+        
+        # サマリーが空の場合、最初の段落を使用
+        if not structured['summary'] and ai_response:
+            first_paragraph = ai_response.split('\n\n')[0] if '\n\n' in ai_response else ai_response[:200]
+            structured['summary'] = first_paragraph.strip()
+        
+        return structured
+        
+    except Exception as e:
+        logger.error(f"JSON parsing error: {str(e)}")
+        # エラー時は基本構造だけ返す
+        return {
+            'summary': 'AI応答の構造化処理でエラーが発生しました',
+            'key_insights': [],
+            'recommendations': [],
+            'data_analysis': {
+                'total_records': len(sales_data) if sales_data else 0,
+                'metrics': {}
+            },
+            'raw_response': ai_response
+        }
 
 
 def response_builder(status_code: int, body: Any) -> Dict[str, Any]:
