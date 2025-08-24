@@ -7,8 +7,9 @@ import ColumnMappingLearning from './components/ColumnMappingLearning'
 import { saveFormatProfile, getFormatProfile } from './lib/supabase'
 import { checkSupabaseConfig } from './lib/debug-supabase'
 
-// 開発環境ではプロキシ経由でアクセス
-const API_ENDPOINT = import.meta.env.DEV ? "/api" : "https://ylgrnwffx6.execute-api.us-east-1.amazonaws.com";
+// APIエンドポイント設定
+const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 
+                    (import.meta.env.DEV ? "/api" : "https://lmyejjujmzorqmrwpljz.supabase.co/functions/v1/analysis");
 
 // チャート用の色設定
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
