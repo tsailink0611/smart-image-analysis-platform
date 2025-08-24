@@ -4,6 +4,8 @@ import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import ColumnMappingLearning from './components/ColumnMappingLearning'
+import { saveFormatProfile, getFormatProfile } from './lib/supabase'
+import { checkSupabaseConfig } from './lib/debug-supabase'
 
 // 開発環境ではプロキシ経由でアクセス
 const API_ENDPOINT = import.meta.env.DEV ? "/api" : "https://ylgrnwffx6.execute-api.us-east-1.amazonaws.com";
@@ -1040,6 +1042,7 @@ ${dataTable}
               <button
                 onClick={() => {
                   console.log('📚 データ学習ボタンがクリックされました');
+                  checkSupabaseConfig(); // デバッグ情報を出力
                   setShowColumnMapping(true);
                 }}
                 style={{
@@ -1310,12 +1313,26 @@ ${dataTable}
       {showColumnMapping && isFileUploaded && salesData.length > 0 && (
         <ColumnMappingLearning
           columns={Object.keys(salesData[0])}
-          onSave={(mappings) => {
+          onSave={async (mappings) => {
             console.log('📚 学習データ保存:', mappings);
             setColumnMappings(mappings);
+            
+            // Supabaseに保存
+            const tenantId = 'default'; // TODO: 実際のテナントIDを使用
+            const headers = Object.keys(salesData[0]);
+            
+            setResponse('📊 学習データを保存中...');
+            const result = await saveFormatProfile(tenantId, headers, mappings);
+            
+            if (result.success) {
+              setResponse(`✅ カラムマッピングを学習・保存しました！\n\n保存内容:\n${JSON.stringify(mappings, null, 2)}`);
+              console.log('✅ Supabase保存成功:', result.profile);
+            } else {
+              setResponse(`⚠️ カラムマッピングは学習しましたが、クラウド保存に失敗しました。\n\nエラー: ${result.error}`);
+              console.error('❌ Supabase保存失敗:', result.error);
+            }
+            
             setShowColumnMapping(false);
-            setResponse(`✅ カラムマッピングを学習しました: ${JSON.stringify(mappings, null, 2)}`);
-            // TODO: Supabaseに保存
           }}
           onCancel={() => {
             console.log('📚 学習をキャンセル');
