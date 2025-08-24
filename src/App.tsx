@@ -376,7 +376,7 @@ function App() {
     }
 
     // Excelファイルの場合
-    if (['xlsx', 'xls'].includes(fileExtension)) {
+    if (['xlsx', 'xls'].includes(fileExtension || '')) {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
@@ -679,11 +679,11 @@ function App() {
         displayText += `【概要】\n${jsonResponse.summary || 'サマリーなし'}\n\n`;
         
         if (jsonResponse.key_insights && jsonResponse.key_insights.length > 0) {
-          displayText += `【主な発見】\n${jsonResponse.key_insights.map(insight => `• ${insight}`).join('\n')}\n\n`;
+          displayText += `【主な発見】\n${jsonResponse.key_insights.map((insight: string) => `• ${insight}`).join('\n')}\n\n`;
         }
         
         if (jsonResponse.recommendations && jsonResponse.recommendations.length > 0) {
-          displayText += `【推奨事項】\n${jsonResponse.recommendations.map(rec => `• ${rec}`).join('\n')}\n\n`;
+          displayText += `【推奨事項】\n${jsonResponse.recommendations.map((rec: string) => `• ${rec}`).join('\n')}\n\n`;
         }
         
         displayText += `【データ分析情報】\n処理済みレコード数: ${jsonResponse.data_analysis?.total_records || 0}件\n\n`;
@@ -772,15 +772,15 @@ function App() {
         }
         
         // 数値データの統計も追加
-        const numericData = [];
+        const numericData: string[] = [];
         columns.forEach(col => {
           const values = salesData.map(row => {
             const val = String(row[col] || '').replace(/[,¥円\s]/g, '');
             return isNaN(Number(val)) ? null : Number(val);
-          }).filter(v => v !== null && v !== 0);
+          }).filter(v => v !== null && v !== 0) as number[];
           
           if (values.length > 0) {
-            const sum = values.reduce((a, b) => a + b, 0);
+            const sum = values.reduce((a: number, b: number) => a + b, 0);
             const avg = sum / values.length;
             const max = Math.max(...values);
             const min = Math.min(...values);
