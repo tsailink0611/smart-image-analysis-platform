@@ -667,7 +667,9 @@ function App() {
 
       const response = await axios.post(API_ENDPOINT, requestBody, {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         }
       });
 
@@ -846,6 +848,8 @@ ${dataTable}
       const result = await axios.post(API_ENDPOINT, requestData, {
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         },
         timeout: 60000 // 60秒のタイムアウト
       })
