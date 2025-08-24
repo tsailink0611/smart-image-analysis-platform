@@ -136,7 +136,23 @@ export default function ColumnMappingLearning({ columns, onSave, onCancel }: Col
           📚 データ形式を学習させる
         </h2>
         
-        <p style={{ marginBottom: '25px', color: '#666' }}>
+        <div style={{ 
+          marginBottom: '25px', 
+          padding: '15px', 
+          backgroundColor: '#fff3cd', 
+          border: '1px solid #ffc107',
+          borderRadius: '6px'
+        }}>
+          <p style={{ margin: 0, color: '#856404', fontWeight: 'bold' }}>
+            ⚠️ 重要：すべての項目を入力してください
+          </p>
+          <p style={{ margin: '5px 0 0 0', color: '#856404', fontSize: '14px' }}>
+            学習を完了するには、以下のすべての列に対して適切なカテゴリを選択する必要があります。
+            未入力の項目があると保存できません。
+          </p>
+        </div>
+        
+        <p style={{ marginBottom: '20px', color: '#666' }}>
           AIが以下の列について質問しています。適切なカテゴリを選択してください：
         </p>
 
@@ -150,6 +166,16 @@ export default function ColumnMappingLearning({ columns, onSave, onCancel }: Col
           }}>
             <h4 style={{ marginBottom: '15px', color: '#444' }}>
               🤔 「{column}」は何のデータですか？
+              {!mappings[column] && (
+                <span style={{ 
+                  marginLeft: '10px', 
+                  fontSize: '12px', 
+                  color: '#dc3545',
+                  fontWeight: 'normal'
+                }}>
+                  ※必須
+                </span>
+              )}
             </h4>
             
             <select
@@ -233,6 +259,7 @@ export default function ColumnMappingLearning({ columns, onSave, onCancel }: Col
           <button
             onClick={handleSave}
             disabled={Object.keys(mappings).length !== columns.length}
+            title={Object.keys(mappings).length !== columns.length ? 'すべての項目を入力してください' : ''}
             style={{
               padding: '12px 25px',
               fontSize: '16px',
@@ -244,7 +271,7 @@ export default function ColumnMappingLearning({ columns, onSave, onCancel }: Col
               cursor: Object.keys(mappings).length === columns.length ? 'pointer' : 'not-allowed'
             }}
           >
-            💾 学習データを保存
+            💾 クラウドに保存
           </button>
           
           <button

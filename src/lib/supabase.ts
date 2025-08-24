@@ -38,51 +38,33 @@ export async function saveFormatProfile(
   mappings: Record<string, string>
 ) {
   try {
+    console.log('📊 保存データ:', { tenantId, headers, mappings });
+    
     // フォーマットシグネチャを生成（日本語対応）
     const headerString = headers.sort().join('|')
     const signature = btoa(unescape(encodeURIComponent(headerString)))
     
-    // 1. フォーマットプロファイルを保存/更新
-    const { data: profile, error: profileError } = await supabase
-      .from(TABLES.FORMAT_PROFILES)
+    // シンプルな1テーブル構造で保存
+    const { data, error } = await supabase
+      .from('format_profiles')
       .upsert({
         tenant_id: tenantId,
         format_signature: signature,
-        headers: headers
+        column_mappings: mappings  // JSONBフィールドに直接保存
       }, {
         onConflict: 'tenant_id,format_signature'
       })
-      .select()
-      .single()
 
-    if (profileError) {
-      console.error('プロファイル保存エラー:', profileError)
-      return { success: false, error: profileError }
+    if (error) {
+      console.error('❌ Supabase保存失敗:', error);
+      throw error;
     }
 
-    // 2. カラムマッピングを保存
-    const mappingData = Object.entries(mappings).map(([source, target]) => ({
-      profile_id: profile.id,
-      source_header: source,
-      target_field: target,
-      confidence: 1.0
-    }))
-
-    const { error: mappingError } = await supabase
-      .from(TABLES.COLUMN_MAPPINGS)
-      .upsert(mappingData, {
-        onConflict: 'profile_id,source_header'
-      })
-
-    if (mappingError) {
-      console.error('マッピング保存エラー:', mappingError)
-      return { success: false, error: mappingError }
-    }
-
-    return { success: true, profile }
+    console.log('✅ Supabase保存成功:', data);
+    return { success: true, profile: data };
   } catch (error) {
-    console.error('保存処理エラー:', error)
-    return { success: false, error }
+    console.error('❌ プロファイル保存エラー:', error);
+    return { success: false, error: String(error) };
   }
 }
 

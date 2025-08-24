@@ -48,6 +48,11 @@ const analyzeSalesData = (data: SalesData[]) => {
   const salesColumns = keys.filter(key => {
     const lowerKey = key.toLowerCase();
     
+    // 日付カラムは除外
+    if (dateColumns.includes(key)) {
+      return false;
+    }
+    
     // キーワードマッチング
     const keywordMatch = lowerKey.includes('sales') || 
       lowerKey.includes('売上') ||
@@ -61,14 +66,21 @@ const analyzeSalesData = (data: SalesData[]) => {
     
     // 数値データチェック（複数行確認）
     let numericCount = 0;
+    let hasLargeNumbers = false;
     for (let i = 0; i < Math.min(5, data.length); i++) {
       const value = String(data[i][key]).replace(/[,¥円\s]/g, '');
-      if (!isNaN(parseFloat(value)) && value !== '') {
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue) && value !== '') {
         numericCount++;
+        // 100以上の数値があれば売上の可能性が高い
+        if (numValue >= 100) {
+          hasLargeNumbers = true;
+        }
       }
     }
     
-    return keywordMatch || (numericCount >= Math.min(3, data.length));
+    // キーワードがマッチするか、大きな数値を含む数値カラムなら売上カラムとして扱う
+    return keywordMatch || (numericCount >= Math.min(3, data.length) && hasLargeNumbers);
   });
 
   // 商品カラムを自動検出
@@ -166,9 +178,16 @@ function App() {
 
     console.log('検出された数値カラム:', numericColumns);
 
-    // 日付と売上のカラムを使用
+    // 日付と売上のカラムを使用（改善版）
     const dateCol = analysis.dateColumns[0] || allKeys[0];
-    const salesCol = analysis.salesColumns[0] || numericColumns[0] || allKeys[1];
+    
+    // 売上カラムの選択を改善（日付カラムを除外）
+    let salesCol = analysis.salesColumns[0];
+    if (!salesCol || salesCol === dateCol) {
+      // 数値カラムから日付カラム以外を選択
+      salesCol = numericColumns.find(col => col !== dateCol) || allKeys.find(key => key !== dateCol) || allKeys[1];
+    }
+    
     const productCol = analysis.productColumns[0] || allKeys.find(key => 
       key !== dateCol && key !== salesCol
     );
@@ -291,21 +310,44 @@ function App() {
         productData.push({ name, value });
       });
     } else {
-      // 商品カラムがない場合は、データの分布で代用
-      const totalSalesCalc = salesData.reduce((sum, row) => sum + parseNumber(row[salesCol]), 0);
-      if (totalSalesCalc > 0) {
+      // 商品カラムがない場合は、曜日別や日別の集計を表示
+      const dayMap = new Map();
+      const dayOfWeeks = ['日', '月', '火', '水', '木', '金', '土'];
+      
+      salesData.forEach(row => {
+        // 日付列から曜日を判定
+        let dayKey = '不明';
+        const dateValue = row[dateCol];
+        
+        // 曜日列がある場合
+        if (dayOfWeeks.includes(String(dateValue))) {
+          dayKey = String(dateValue);
+        } else if (dateValue) {
+          // 日付から曜日を推定（簡易的に日別として扱う）
+          dayKey = String(dateValue).substring(0, 10);
+        }
+        
+        const sales = parseNumber(row[salesCol]);
+        if (dayMap.has(dayKey)) {
+          dayMap.set(dayKey, dayMap.get(dayKey) + sales);
+        } else {
+          dayMap.set(dayKey, sales);
+        }
+      });
+      
+      // 上位5つを取得
+      const sortedDays = Array.from(dayMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+      
+      sortedDays.forEach(([name, value]) => {
+        productData.push({ name, value });
+      });
+      
+      // データがない場合のフォールバック
+      if (productData.length === 0) {
         productData.push(
-          { name: 'カテゴリA', value: Math.round(totalSalesCalc * 0.4) },
-          { name: 'カテゴリB', value: Math.round(totalSalesCalc * 0.3) },
-          { name: 'カテゴリC', value: Math.round(totalSalesCalc * 0.2) },
-          { name: 'カテゴリD', value: Math.round(totalSalesCalc * 0.1) }
-        );
-      } else {
-        productData.push(
-          { name: 'サンプルA', value: 100000 },
-          { name: 'サンプルB', value: 80000 },
-          { name: 'サンプルC', value: 60000 },
-          { name: 'サンプルD', value: 40000 }
+          { name: 'データなし', value: 1 }
         );
       }
     }
@@ -978,9 +1020,10 @@ ${dataTable}
                   console.log('📊 現在のsalesData:', salesData);
                   console.log('📊 salesData長さ:', salesData?.length);
                   
-                  setPrompt('グラフを表示して');
+                  // プロンプトに影響せずにグラフを表示
                   setForceShowGraphs(true);
                   setShowDataTable(false);
+                  setShowCharts(true);
                   
                   // データの存在確認
                   if (salesData && salesData.length > 0) {
@@ -1094,43 +1137,63 @@ ${dataTable}
       </div>
 
       <div style={{ display: 'flex', gap: '10px' }}>
-        <button
-          onClick={handleSubmit}
-          disabled={isLoading || !prompt.trim()}
-          style={{
-            flex: 1,
-            padding: '12px 24px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            color: 'white',
-            backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#007bff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
-            transition: 'background-color 0.3s'
-          }}
-        >
-          {isLoading ? '処理中...' : '送信'}
-        </button>
+        <div style={{ flex: 1 }}>
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading || !prompt.trim()}
+            style={{
+              width: '100%',
+              padding: '12px 24px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              color: 'white',
+              backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#007bff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.3s'
+            }}
+          >
+            {isLoading ? '処理中...' : '💬 AIに質問する（テキスト形式）'}
+          </button>
+          <p style={{ 
+            margin: '5px 0 0 0', 
+            fontSize: '11px', 
+            color: '#666',
+            textAlign: 'center'
+          }}>
+            分析結果を文章で説明してほしいとき
+          </p>
+        </div>
         
-        <button
-          onClick={handleSubmitJSON}
-          disabled={isLoading || !prompt.trim()}
-          style={{
-            flex: 1,
-            padding: '12px 24px',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            color: 'white',
-            backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#28a745',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
-            transition: 'background-color 0.3s'
-          }}
-        >
-          🧪 JSON形式テスト
-        </button>
+        <div style={{ flex: 1 }}>
+          <button
+            onClick={handleSubmitJSON}
+            disabled={isLoading || !prompt.trim()}
+            style={{
+              width: '100%',
+              padding: '12px 24px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              color: 'white',
+              backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#28a745',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.3s'
+            }}
+          >
+            📊 AIに質問する（データ形式）
+          </button>
+          <p style={{ 
+            margin: '5px 0 0 0', 
+            fontSize: '11px', 
+            color: '#666',
+            textAlign: 'center'
+          }}>
+            数値ベースの詳細な分析データが欲しいとき
+          </p>
+        </div>
       </div>
 
       <div style={{
