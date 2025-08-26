@@ -1,13 +1,13 @@
 {
-  "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ],
-  "functions": {
-    "api/**/*.js": { "runtime": "nodejs20.x", "maxDuration": 60 }
-  },
-  "env": { "NODE_VERSION": "20" }
-}
+    "version": 2,
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
+    "routes": [
+      { "handle": "filesystem" },
+      { "src": "/(.*)", "dest": "/index.html" }
+    ],
+    "functions": {
+      "api/**/*.{js,mjs}": { "runtime": "nodejs20.x", "maxDuration": 60 }
+    },
+    "env": { "NODE_VERSION": "20" }
+  }
