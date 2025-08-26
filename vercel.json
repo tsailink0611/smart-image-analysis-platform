@@ -18,6 +18,11 @@
       "dest": "/index.html"
     }
   ],
+  "functions": {
+    "api/analysis.ts": {
+      "maxDuration": 60
+    }
+  },
   "env": {
     "NODE_VERSION": "18"
   }

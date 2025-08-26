@@ -1,370 +1,255 @@
-import boto3
 import json
+import boto3
+import os
 import logging
-import uuid
-from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Any, Optional
+import pandas as pd
+from io import StringIO
 
-# ログ設定
+# Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-def estimate_tokens(text: str) -> int:
-    """テキストのトークン数を概算（1トークン≈4文字として計算）"""
-    return max(1, len(text) // 4)
+# Initialize Bedrock client
+bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-east-1')
 
-def calculate_cost(tokens_in: int, tokens_out: int) -> float:
-    """Claude 3 Sonnetの料金計算"""
-    # 入力: $0.003 per 1K tokens, 出力: $0.015 per 1K tokens
-    cost_input = (tokens_in / 1000) * 0.003
-    cost_output = (tokens_out / 1000) * 0.015
-    return cost_input + cost_output
-
-def log_usage(tenant_id: str, request_id: str, action: str, tokens_in: int, tokens_out: int, cost: float, duration_ms: int, data_rows: int):
-    """使用量をCloudWatchログに記録"""
-    usage_log = {
-        "type": "AI_USAGE",
-        "tenant_id": tenant_id,
-        "request_id": request_id,
-        "action": action,
-        "tokens_in": tokens_in,
-        "tokens_out": tokens_out,
-        "cost_usd": round(cost, 6),
-        "duration_ms": duration_ms,
-        "data_rows": data_rows,
-        "timestamp": datetime.utcnow().isoformat(),
-        "model": "claude-3-sonnet-20240229"
-    }
-    logger.info(f"[USAGE_TRACKING] {json.dumps(usage_log)}")
-    return usage_log
-
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """
-    Strategic AI Platform - Lambda関数
-    フロントエンドから送信されたデータを処理し、Amazon BedrockのClaude 3で分析
-    """
-    # 使用量追跡用の変数
-    request_id = str(uuid.uuid4())
-    start_time = datetime.utcnow()
-    
-    try:
-        # 1. リクエスト解析
-        body = json.loads(event.get('body', '{}'))
-        prompt = body.get('prompt', '')
-        
-        # 複数フィールドからデータを取得（フロントエンド互換性のため）
-        sales_data = (
-            body.get('salesData') or 
-            body.get('data') or 
-            body.get('attachments') or 
-            []
-        )
-        
-        data_context = body.get('dataContext', '')
-        metadata = body.get('metadata', {})
-        system_message = body.get('systemMessage', '')
-        
-        logger.info(f"Received prompt: {prompt[:100]}...")
-        logger.info(f"Sales data rows: {len(sales_data) if sales_data else 0}")
-        logger.info(f"Has metadata: {bool(metadata)}")
-        logger.info(f"Data context length: {len(data_context) if data_context else 0}")
-        
-        # 2. 入力バリデーション
-        if not prompt:
-            return response_builder(400, "プロンプトが必要です")
-        
-        # 3. Bedrock クライアント初期化
-        try:
-            bedrock = boto3.client(
-                service_name='bedrock-runtime',
-                region_name='us-east-1'
-            )
-        except Exception as e:
-            logger.error(f"Bedrock client initialization failed: {str(e)}")
-            return response_builder(500, f"Bedrockクライアント初期化エラー: {str(e)}")
-        
-        # 4. 強化プロンプト構築
-        enhanced_prompt = build_analysis_prompt(prompt, sales_data, data_context, metadata)
-        
-        logger.info(f"Enhanced prompt length: {len(enhanced_prompt)}")
-        logger.info(f"Enhanced prompt preview: {enhanced_prompt[:300]}...")
-        
-        # 5. Claude 3 API 呼び出し
-        request_body = {
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 2000,
-            "temperature": 0.1,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": enhanced_prompt
-                }
-            ]
-        }
-        
-        try:
-            response = bedrock.invoke_model(
-                modelId='anthropic.claude-3-sonnet-20240229-v1:0',
-                body=json.dumps(request_body)
-            )
-        except Exception as e:
-            logger.error(f"Bedrock API call failed: {str(e)}")
-            return response_builder(500, f"Bedrock API呼び出しエラー: {str(e)}")
-        
-        # 6. レスポンス解析
-        try:
-            response_body = json.loads(response['body'].read())
-            ai_response = response_body['content'][0]['text']
-        except Exception as e:
-            logger.error(f"Response parsing failed: {str(e)}")
-            return response_builder(500, f"レスポンス解析エラー: {str(e)}")
-        
-        logger.info("Bedrock response received successfully")
-        
-        # 使用量追跡の計算
-        tenant_id = body.get('tenantId', 'default')
-        tokens_in = estimate_tokens(enhanced_prompt)
-        tokens_out = estimate_tokens(ai_response)
-        cost = calculate_cost(tokens_in, tokens_out)
-        duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
-        
-        # 使用量をログに記録
-        usage_data = log_usage(
-            tenant_id=tenant_id,
-            request_id=request_id,
-            action="sales_analysis",
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
-            cost=cost,
-            duration_ms=duration_ms,
-            data_rows=len(sales_data) if sales_data else 0
-        )
-        
-        # 7. レスポンス形式判定（JSON または Markdown）
-        response_format = body.get('responseFormat', 'markdown')  # デフォルトはmarkdown
-        
-        if response_format == 'json':
-            # JSON形式での構造化レスポンス
-            structured_response = parse_ai_response_to_json(ai_response, sales_data)
-            return response_builder(200, {
-                'response': structured_response,
-                'message': '分析が完了しました（JSON形式）',
-                'dataProcessed': len(sales_data) if sales_data else 0,
-                'format': 'json',
-                'usage': {
-                    'tokens_in': tokens_in,
-                    'tokens_out': tokens_out,
-                    'cost_usd': round(cost, 6),
-                    'duration_ms': duration_ms,
-                    'request_id': request_id
-                }
-            })
-        else:
-            # 従来のMarkdown形式レスポンス
-            return response_builder(200, {
-                'response': ai_response,
-                'message': '分析が完了しました',
-                'dataProcessed': len(sales_data) if sales_data else 0,
-                'format': 'markdown',
-                'usage': {
-                    'tokens_in': tokens_in,
-                    'tokens_out': tokens_out,
-                    'cost_usd': round(cost, 6),
-                    'duration_ms': duration_ms,
-                    'request_id': request_id
-                }
-            })
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parsing error: {str(e)}")
-        return response_builder(400, f"JSONデータの解析に失敗しました: {str(e)}")
-        
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        return response_builder(500, f"サーバー内部エラー: {str(e)}")
-
-
-def build_analysis_prompt(user_prompt: str, sales_data: List[Dict], data_context: str, metadata: Dict) -> str:
-    """
-    分析用プロンプトの構築
-    実データを使用し、偽データ生成を防止する明示的指示を含む
-    """
-    
-    base_prompt = f"""あなたは売上データ分析の専門家です。以下の売上データを分析し、ユーザーの質問に回答してください。
-
-【重要な指示】
-- 提供されたデータのみを使用して分析してください
-- 架空のデータやサンプルデータは絶対に作成しないでください
-- 実際のデータに基づいた具体的な数値で分析してください
-- データがない場合は「データが提供されていません」と明記してください
-
-【ユーザーの質問】
-{user_prompt}
-
-"""
-    
-    # データが提供されている場合
-    if sales_data and len(sales_data) > 0:
-        base_prompt += f"【実際の売上データ】\n"
-        base_prompt += f"データ行数: {len(sales_data)}行\n"
-        
-        # メタデータ情報を追加
-        if metadata:
-            if metadata.get('columns'):
-                base_prompt += f"データ項目: {', '.join(metadata['columns'])}\n"
-            if metadata.get('totalRows'):
-                base_prompt += f"総行数: {metadata['totalRows']}行（送信制限により{len(sales_data)}行を分析対象とします）\n"
-        
-        base_prompt += "\n【データ内容（テーブル形式）】\n"
-        
-        # データをテーブル形式で整形
-        if len(sales_data) > 0:
-            # ヘッダー行を作成
-            headers = list(sales_data[0].keys())
-            base_prompt += "| " + " | ".join(headers) + " |\n"
-            base_prompt += "|" + "|".join([" --- " for _ in headers]) + "|\n"
-            
-            # データ行を追加（最初の10行のみ表示、残りはサマリー）
-            display_rows = min(10, len(sales_data))
-            for i in range(display_rows):
-                row_data = []
-                for header in headers:
-                    value = sales_data[i].get(header, '')
-                    # 値を文字列として処理し、パイプ文字をエスケープ
-                    str_value = str(value).replace('|', '\\|') if value is not None else ''
-                    row_data.append(str_value)
-                base_prompt += "| " + " | ".join(row_data) + " |\n"
-            
-            # 残りのデータがある場合はサマリーを追加
-            if len(sales_data) > display_rows:
-                base_prompt += f"\n... （他 {len(sales_data) - display_rows} 行のデータがあります）\n"
-        
-        # データコンテキストがある場合は追加
-        if data_context:
-            base_prompt += f"\n【データの特徴】\n{data_context}\n"
-        
-        base_prompt += """
-【分析要件】
-1. 提供された実データの特徴と傾向を分析してください
-2. 具体的な数値と根拠を示してください
-3. ビジネスへの影響を評価してください
-4. 実用的な改善提案を含めてください
-5. 日本語で分かりやすく回答してください
-
-【厳重注意】
-- 上記のテーブルデータのみを使用してください
-- period11, period28 などの架空のデータは絶対に使用しないでください
-- データにない情報は推測や創作をしないでください
-"""
-    
-    else:
-        # データが提供されていない場合
-        base_prompt += """【データ状況】
-データが提供されていません。一般的な売上分析のアドバイスを提供します。
-
-【対応内容】
-1. 売上分析の基本的な手法をご説明します
-2. データ収集の重要性について
-3. 分析に必要な項目について
-4. 一般的な改善提案について
-
-【重要】
-具体的な数値分析はデータが必要です。CSVファイルやExcelファイルをアップロードしてください。
-"""
-    
-    base_prompt += "\n【分析結果】\n"
-    
-    return base_prompt
-
-
-def parse_ai_response_to_json(ai_response: str, sales_data: List[Dict]) -> Dict[str, Any]:
-    """
-    AI応答をJSON形式に構造化
-    """
-    try:
-        # 基本的な構造化情報
-        structured = {
-            'summary': '',
-            'key_insights': [],
-            'recommendations': [],
-            'data_analysis': {
-                'total_records': len(sales_data) if sales_data else 0,
-                'metrics': {}
-            },
-            'raw_response': ai_response
-        }
-        
-        # シンプルな解析（改行で分割して構造化）
-        lines = ai_response.split('\n')
-        current_section = 'summary'
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            # セクションの判定
-            if '分析結果' in line or 'まとめ' in line:
-                current_section = 'summary'
-            elif '提案' in line or '改善' in line or 'おすすめ' in line:
-                current_section = 'recommendations'
-            elif '特徴' in line or 'ポイント' in line or '傾向' in line:
-                current_section = 'key_insights'
-            elif line.startswith('- ') or line.startswith('• '):
-                # リスト項目の処理
-                clean_line = line[2:].strip()
-                if current_section == 'key_insights':
-                    structured['key_insights'].append(clean_line)
-                elif current_section == 'recommendations':
-                    structured['recommendations'].append(clean_line)
-            elif len(line) > 20 and current_section == 'summary' and not structured['summary']:
-                structured['summary'] = line
-        
-        # サマリーが空の場合、最初の段落を使用
-        if not structured['summary'] and ai_response:
-            first_paragraph = ai_response.split('\n\n')[0] if '\n\n' in ai_response else ai_response[:200]
-            structured['summary'] = first_paragraph.strip()
-        
-        return structured
-        
-    except Exception as e:
-        logger.error(f"JSON parsing error: {str(e)}")
-        # エラー時は基本構造だけ返す
-        return {
-            'summary': 'AI応答の構造化処理でエラーが発生しました',
-            'key_insights': [],
-            'recommendations': [],
-            'data_analysis': {
-                'total_records': len(sales_data) if sales_data else 0,
-                'metrics': {}
-            },
-            'raw_response': ai_response
-        }
-
-
-def response_builder(status_code: int, body: Any) -> Dict[str, Any]:
-    """
-    CORS対応レスポンスビルダー
-    """
-    if isinstance(body, str):
-        response_body = {"message": body}
-    else:
-        response_body = body
-    
+def response_builder(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Build API Gateway response with proper CORS headers"""
     return {
         'statusCode': status_code,
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS, GET'
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS,PUT,DELETE'
         },
-        'body': json.dumps(response_body, ensure_ascii=False, indent=2)
+        'body': json.dumps(body, ensure_ascii=False)
     }
 
+def parse_csv_data(csv_content: str) -> pd.DataFrame:
+    """Parse CSV content into a pandas DataFrame"""
+    try:
+        # Try different encodings and delimiters
+        csv_file = StringIO(csv_content)
+        df = pd.read_csv(csv_file)
+        return df
+    except Exception as e:
+        logger.error(f"Error parsing CSV: {str(e)}")
+        raise
 
-def handle_options() -> Dict[str, Any]:
-    """
-    CORS preflight リクエスト処理
-    """
-    return response_builder(200, {"message": "CORS preflight OK"})
+def analyze_data_structure(df: pd.DataFrame) -> Dict[str, Any]:
+    """Analyze the structure and basic statistics of the data"""
+    analysis = {
+        'row_count': len(df),
+        'column_count': len(df.columns),
+        'columns': list(df.columns),
+        'data_types': df.dtypes.to_dict(),
+        'null_counts': df.isnull().sum().to_dict(),
+        'summary_stats': {}
+    }
+    
+    # Add summary statistics for numeric columns
+    numeric_columns = df.select_dtypes(include=['number']).columns
+    for col in numeric_columns:
+        analysis['summary_stats'][col] = {
+            'mean': float(df[col].mean()) if not df[col].isna().all() else None,
+            'median': float(df[col].median()) if not df[col].isna().all() else None,
+            'std': float(df[col].std()) if not df[col].isna().all() else None,
+            'min': float(df[col].min()) if not df[col].isna().all() else None,
+            'max': float(df[col].max()) if not df[col].isna().all() else None
+        }
+    
+    return analysis
+
+def build_analysis_prompt(df: pd.DataFrame, data_analysis: Dict[str, Any]) -> str:
+    """Build a comprehensive prompt for Claude analysis"""
+    
+    # Get sample data (first 5 rows)
+    sample_data = df.head(5).to_string(index=False)
+    
+    # Build the prompt
+    prompt = f"""以下のCSVデータを分析し、売上分析レポートを作成してください。
+
+データの基本情報:
+- 行数: {data_analysis['row_count']}
+- 列数: {data_analysis['column_count']}
+- 列名: {', '.join(data_analysis['columns'])}
+
+サンプルデータ (最初の5行):
+{sample_data}
+
+データの統計情報:
+{json.dumps(data_analysis['summary_stats'], indent=2, ensure_ascii=False)}
+
+以下の観点から包括的な分析を行ってください:
+
+1. **データ概要**
+   - データの性質と特徴
+   - データ品質の評価（欠損値、異常値など）
+
+2. **売上トレンド分析**
+   - 時系列での売上推移
+   - 季節性やパターンの特定
+   - 成長率の分析
+
+3. **セグメント別分析**
+   - 製品別、地域別、顧客別などの売上分析
+   - 最も収益性の高いセグメントの特定
+
+4. **パフォーマンス指標**
+   - KPI（売上成長率、利益率など）の計算
+   - ベンチマークとの比較
+
+5. **インサイトと提案**
+   - データから読み取れる重要なインサイト
+   - ビジネス改善のための具体的な提案
+   - リスクファクターの特定
+
+6. **次のアクション**
+   - 優先すべき改善領域
+   - 推奨される戦略的アクション
+
+回答は日本語で、ビジネス関係者にとって理解しやすい形で提供してください。
+具体的な数値やデータポイントを含めて説明し、実用的なビジネスインサイトを提供してください。"""
+
+    return prompt
+
+def call_claude_api(prompt: str) -> str:
+    """Call Claude API via AWS Bedrock"""
+    try:
+        body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 4000,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        }
+        
+        response = bedrock_runtime.invoke_model(
+            modelId="anthropic.claude-3-sonnet-20240229-v1:0",
+            body=json.dumps(body)
+        )
+        
+        response_body = json.loads(response['body'].read())
+        return response_body['content'][0]['text']
+        
+    except Exception as e:
+        logger.error(f"Error calling Claude API: {str(e)}")
+        raise
+
+def generate_mock_insights() -> Dict[str, Any]:
+    """Generate mock insights for testing purposes"""
+    return {
+        "overview": "データ分析が完了しました。売上データから重要なトレンドとインサイトを特定しました。",
+        "key_metrics": {
+            "total_revenue": "¥15,234,567",
+            "growth_rate": "+12.5%",
+            "avg_order_value": "¥4,521",
+            "conversion_rate": "3.2%"
+        },
+        "insights": [
+            "第3四半期に売上が20%増加しており、季節要因が強く影響している",
+            "プレミアム製品カテゴリが全体の売上の45%を占めている",
+            "東京エリアの売上成長率が他地域より15%高い",
+            "リピート顧客の平均購入金額が新規顧客の2.3倍"
+        ],
+        "recommendations": [
+            "第3四半期の成功要因を分析し、他四半期にも適用する",
+            "プレミアム製品の在庫管理とマーケティングを強化する",
+            "東京エリアの成功事例を他地域に展開する",
+            "リピート顧客向けのロイヤリティプログラムを導入する"
+        ]
+    }
+
+def lambda_handler(event, context):
+    """Main Lambda handler"""
+    try:
+        # Handle OPTIONS request for CORS (support both v1 and v2 API Gateway formats)
+        http_method = event.get('httpMethod') or event.get('requestContext', {}).get('http', {}).get('method')
+        if http_method == 'OPTIONS':
+            logger.info("Handling OPTIONS preflight request")
+            return response_builder(200, {'message': 'CORS preflight successful'})
+        
+        # Log the event for debugging
+        logger.info(f"Received event: {json.dumps(event, default=str)}")
+        
+        # Parse request body
+        if 'body' not in event or not event['body']:
+            return response_builder(400, {'error': 'Request body is required'})
+        
+        try:
+            body = json.loads(event['body'])
+        except json.JSONDecodeError:
+            return response_builder(400, {'error': 'Invalid JSON in request body'})
+        
+        # Validate required fields - accept both csvData and data field
+        csv_data = None
+        if 'csvData' in body:
+            csv_data = body['csvData']
+        elif 'data' in body or 'salesData' in body:
+            # Convert array data to CSV format
+            array_data = body.get('data') or body.get('salesData')
+            if isinstance(array_data, list) and len(array_data) > 0:
+                # Convert array of objects to CSV
+                import pandas as pd
+                df = pd.DataFrame(array_data)
+                csv_data = df.to_csv(index=False)
+            else:
+                return response_builder(400, {'error': 'Data field must be a non-empty array'})
+        else:
+            return response_builder(400, {'error': 'csvData, data, or salesData field is required'})
+        
+        csv_content = csv_data
+        response_format = body.get('format', 'json')  # 'json' or 'text'
+        
+        # Parse CSV data
+        try:
+            df = parse_csv_data(csv_content)
+            logger.info(f"Successfully parsed CSV with {len(df)} rows and {len(df.columns)} columns")
+        except Exception as e:
+            return response_builder(400, {'error': f'Failed to parse CSV data: {str(e)}'})
+        
+        # Analyze data structure
+        data_analysis = analyze_data_structure(df)
+        
+        # Check if we should use real Claude API or mock data
+        use_claude = os.environ.get('USE_CLAUDE_API', 'true').lower() == 'true'
+        
+        if use_claude:
+            try:
+                # Build prompt and call Claude API
+                prompt = build_analysis_prompt(df, data_analysis)
+                claude_response = call_claude_api(prompt)
+                
+                if response_format == 'text':
+                    return response_builder(200, {
+                        'analysis': claude_response,
+                        'data_info': data_analysis
+                    })
+                else:
+                    # For JSON format, we need to structure the response
+                    # In a real implementation, you might want to parse Claude's response
+                    # into structured JSON, but for now we'll return it as text
+                    return response_builder(200, {
+                        'overview': claude_response[:200] + '...',
+                        'full_analysis': claude_response,
+                        'data_info': data_analysis,
+                        'insights': ['Claude analysis completed successfully'],
+                        'recommendations': ['詳細な分析結果を確認してください']
+                    })
+                    
+            except Exception as e:
+                logger.error(f"Error calling Claude API: {str(e)}")
+                return response_builder(500, {'error': f'AI analysis failed: {str(e)}'})
+        else:
+            # Use mock data for testing
+            mock_insights = generate_mock_insights()
+            mock_insights['data_info'] = data_analysis
+            return response_builder(200, mock_insights)
+            
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return response_builder(500, {'error': f'Internal server error: {str(e)}'})

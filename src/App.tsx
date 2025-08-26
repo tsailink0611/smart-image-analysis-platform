@@ -8,8 +8,7 @@ import { saveFormatProfile, getFormatProfile } from './lib/supabase'
 import { checkSupabaseConfig } from './lib/debug-supabase'
 
 // APIエンドポイント設定
-const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 
-                    (import.meta.env.DEV ? "/api" : "https://ylgrnwffx6.execute-api.us-east-1.amazonaws.com/prod");
+const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || "/api/analysis";
 
 // チャート用の色設定
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
