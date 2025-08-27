@@ -13,6 +13,23 @@ const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || "/api/analysis";
 // チャート用の色設定
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
+// 文字列化ヘルパー関数
+function stringifyForDisplay(payload: any): string {
+  try {
+    if (payload == null) return '';
+    if (typeof payload === 'string') return payload;
+
+    // UIが想定している { response: {...}, format: "json", ... } に対応
+    if (payload.response && typeof payload.response !== 'string') {
+      return JSON.stringify(payload.response, null, 2);
+    }
+    return JSON.stringify(payload, null, 2);
+  } catch {
+    // 最低限、文字列化
+    return String(payload);
+  }
+}
+
 interface SalesData {
   [key: string]: string | number
 }
@@ -693,7 +710,8 @@ function App() {
         
         setResponse(displayText);
       } else {
-        setResponse(response.data.response || 'JSON形式での応答がありませんでした');
+        const payload = response.data;
+        setResponse(stringifyForDisplay(payload));
       }
     } catch (error: any) {
       console.error('❌ JSON形式テストエラー:', error);
@@ -854,7 +872,8 @@ ${dataTable}
       })
       
       console.log('🚀 API応答:', result.data);
-      setResponse(result.data.response || result.data.message || JSON.stringify(result.data))
+      const payload = result.data;
+      setResponse(typeof payload === 'string' ? payload : stringifyForDisplay(payload))
     } catch (error: any) {
       console.error('❌ API Error詳細:', error);
       console.error('❌ Error Config:', error.config);
