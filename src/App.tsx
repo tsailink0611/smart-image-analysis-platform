@@ -19,13 +19,10 @@ function stringifyForDisplay(payload: any): string {
     if (payload == null) return '';
     if (typeof payload === 'string') return payload;
 
-    // UIが想定している { response: {...}, format: "json", ... } に対応
-    if (payload.response && typeof payload.response !== 'string') {
-      return JSON.stringify(payload.response, null, 2);
-    }
-    return JSON.stringify(payload, null, 2);
+    // { response: {...}, format: 'json', message: 'OK' } に対応
+    const body = payload.response ?? payload;
+    return typeof body === 'string' ? body : JSON.stringify(body, null, 2);
   } catch {
-    // 最低限、文字列化
     return String(payload);
   }
 }
@@ -656,69 +653,41 @@ function App() {
 
   // JSON形式テスト用関数
   const handleSubmitJSON = async () => {
-    if (!prompt.trim()) return
+    if (!prompt.trim()) return;
 
-    setIsLoading(true)
-    setResponse('')
-
-    console.log('🧪 JSON形式テスト開始');
-    console.log('🧪 prompt:', prompt);
-    console.log('🧪 salesData:', salesData);
+    setIsLoading(true);         // ← 「AIが生成中」表示ON
+    setResponse('');            // 既存表示のクリア
 
     try {
-      const requestBody = {
-        prompt: prompt,
-        salesData: salesData,
-        dataContext: `データファイル情報: 
-- 総行数: ${salesData?.length || 0}行
-- 項目: ${salesData && salesData.length > 0 ? Object.keys(salesData[0]).join(', ') : 'なし'}`,
-        metadata: {
-          columns: salesData && salesData.length > 0 ? Object.keys(salesData[0]) : [],
-          totalRows: salesData?.length || 0
-        },
-        responseFormat: 'json'  // JSON形式を指定
+      const endpoint = import.meta.env.VITE_API_ENDPOINT ?? '/api/analysis';
+      const body = {
+        prompt,
+        salesData,              // 画面のデータ配列
+        responseFormat: 'json'  // 明示（なくてもOKだが安全）
       };
 
-      console.log('🧪 送信データ:', requestBody);
-
-      const response = await axios.post(API_ENDPOINT, requestBody, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-        }
+      const { data } = await axios.post(endpoint, body, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 60000          // 60秒で切る（無限待ち防止）
       });
 
-      console.log('🧪 JSON形式レスポンス:', response.data);
-      
-      // 構造化されたJSONレスポンスを表示
-      if (response.data.response && typeof response.data.response === 'object') {
-        const jsonResponse = response.data.response;
-        let displayText = `📋 分析結果 (JSON形式)\n\n`;
-        displayText += `【概要】\n${jsonResponse.summary || 'サマリーなし'}\n\n`;
-        
-        if (jsonResponse.key_insights && jsonResponse.key_insights.length > 0) {
-          displayText += `【主な発見】\n${jsonResponse.key_insights.map((insight: string) => `• ${insight}`).join('\n')}\n\n`;
-        }
-        
-        if (jsonResponse.recommendations && jsonResponse.recommendations.length > 0) {
-          displayText += `【推奨事項】\n${jsonResponse.recommendations.map((rec: string) => `• ${rec}`).join('\n')}\n\n`;
-        }
-        
-        displayText += `【データ分析情報】\n処理済みレコード数: ${jsonResponse.data_analysis?.total_records || 0}件\n\n`;
-        displayText += `詳細は開発者コンソールで確認してください。`;
-        
-        setResponse(displayText);
-      } else {
-        const payload = response.data;
-        setResponse(stringifyForDisplay(payload));
-      }
-    } catch (error: any) {
-      console.error('❌ JSON形式テストエラー:', error);
-      setResponse(`**JSON形式テストエラー:** ${error.response?.data?.message || error.message}`);
-    }
+      // 受信データの整形
+      const res = data?.response ?? data;
+      const summary = res?.summary_ai || res?.summary || '';
+      const total = res?.data_analysis?.total_records ?? salesData?.length ?? 0;
 
-    setIsLoading(false);
+      // 画面用（上部のテキスト）
+      setResponse(stringifyForDisplay(res));
+
+      // 開発者ログ（Consoleで中身を見やすく）
+      console.log('API応答(JSON):', { summary, total, res });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || String(err);
+      setResponse(`JSONエラー: ${msg}`);
+      console.error('JSON送信エラー:', err);
+    } finally {
+      setIsLoading(false);      // ← ここが大事。「AIが生成中」を必ずOFF
+    }
   };
 
   const handleSubmit = async () => {
