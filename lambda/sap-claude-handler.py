@@ -2,7 +2,7 @@ import json
 import boto3
 import os
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
 from io import StringIO
 
@@ -36,6 +36,55 @@ def parse_csv_data(csv_content: str) -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Error parsing CSV: {str(e)}")
         raise
+
+def parse_csv_to_rows(csv_content: str) -> List[Dict[str, Any]]:
+    """Parse CSV content to list of dictionaries"""
+    try:
+        df = parse_csv_data(csv_content)
+        return df.to_dict('records')
+    except Exception as e:
+        logger.error(f"Error parsing CSV to rows: {str(e)}")
+        raise
+
+def _autodetect_payload(body: Dict[str, Any]) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
+    """
+    Auto-detect rows and CSV data from payload
+    Returns: (rows, csv_text)
+    """
+    rows = None
+    csv_text = None
+    
+    # Row data detection (priority order)
+    row_keys = ['rows', 'dataRows', 'records', 'table', 'data', 'salesData']
+    for key in row_keys:
+        if key in body and body[key]:
+            data = body[key]
+            if isinstance(data, list) and len(data) > 0:
+                rows = data
+                print(f"[AUTODETECT] Found rows data in '{key}': {len(rows)} rows")  # テスト用ログ
+                break
+    
+    # CSV text detection (priority order)
+    csv_keys = ['csv', 'fileContent', 'input', 'text', 'content', 'csvData']
+    for key in csv_keys:
+        if key in body and body[key]:
+            data = body[key]
+            if isinstance(data, str) and len(data.strip()) > 0:
+                csv_text = data
+                print(f"[AUTODETECT] Found CSV data in '{key}': {len(csv_text)} chars")  # テスト用ログ
+                break
+    
+    # Convert CSV to rows if needed
+    if csv_text and not rows:
+        try:
+            rows = parse_csv_to_rows(csv_text)
+            print(f"[AUTODETECT] Converted CSV to rows: {len(rows)} rows")  # テスト用ログ
+        except Exception as e:
+            logger.warning(f"Failed to convert CSV to rows: {str(e)}")
+    
+    print(f"[AUTODETECT] Final result - rows: {len(rows) if rows else 0}, csv_text: {len(csv_text) if csv_text else 0} chars")  # テスト用ログ
+    
+    return rows, csv_text
 
 def analyze_data_structure(df: pd.DataFrame) -> Dict[str, Any]:
     """Analyze the structure and basic statistics of the data"""
@@ -185,32 +234,48 @@ def lambda_handler(event, context):
         except json.JSONDecodeError:
             return response_builder(400, {'error': 'Invalid JSON in request body'})
         
-        # Validate required fields - accept both csvData and data field
-        csv_data = None
-        if 'csvData' in body:
-            csv_data = body['csvData']
-        elif 'data' in body or 'salesData' in body:
-            # Convert array data to CSV format
-            array_data = body.get('data') or body.get('salesData')
-            if isinstance(array_data, list) and len(array_data) > 0:
-                # Convert array of objects to CSV
-                import pandas as pd
-                df = pd.DataFrame(array_data)
-                csv_data = df.to_csv(index=False)
-            else:
-                return response_builder(400, {'error': 'Data field must be a non-empty array'})
+        # Auto-detect payload format first
+        rows_data, csv_text = _autodetect_payload(body)
+        
+        # If auto-detection found data, use it
+        if rows_data:
+            # Use detected rows directly
+            df = pd.DataFrame(rows_data)
+            logger.info(f"[AUTODETECT SUCCESS] Using detected rows: {len(df)} rows, {len(df.columns)} columns")
+        elif csv_text:
+            # Parse detected CSV text
+            try:
+                df = parse_csv_data(csv_text)
+                logger.info(f"[AUTODETECT SUCCESS] Using detected CSV: {len(df)} rows, {len(df.columns)} columns")
+            except Exception as e:
+                logger.error(f"[AUTODETECT] Failed to parse detected CSV: {str(e)}")
+                return response_builder(400, {'error': f'Failed to parse detected CSV data: {str(e)}'})
         else:
-            return response_builder(400, {'error': 'csvData, data, or salesData field is required'})
-        
-        csv_content = csv_data
-        response_format = body.get('format', 'json')  # 'json' or 'text'
-        
-        # Parse CSV data
-        try:
-            df = parse_csv_data(csv_content)
-            logger.info(f"Successfully parsed CSV with {len(df)} rows and {len(df.columns)} columns")
-        except Exception as e:
-            return response_builder(400, {'error': f'Failed to parse CSV data: {str(e)}'})
+            # Fallback to existing logic
+            logger.info("[AUTODETECT] No data detected, falling back to existing logic")
+            csv_data = None
+            if 'csvData' in body:
+                csv_data = body['csvData']
+            elif 'data' in body or 'salesData' in body:
+                # Convert array data to CSV format
+                array_data = body.get('data') or body.get('salesData')
+                if isinstance(array_data, list) and len(array_data) > 0:
+                    # Convert array of objects to CSV
+                    df = pd.DataFrame(array_data)
+                    csv_data = df.to_csv(index=False)
+                else:
+                    return response_builder(400, {'error': 'Data field must be a non-empty array'})
+            else:
+                return response_builder(400, {'error': 'No valid data found. Expected: rows, data, salesData, csvData, or CSV content'})
+            
+            if csv_data:
+                csv_content = csv_data
+                # Parse CSV data
+                try:
+                    df = parse_csv_data(csv_content)
+                    logger.info(f"[FALLBACK SUCCESS] Parsed CSV: {len(df)} rows, {len(df.columns)} columns")
+                except Exception as e:
+                    return response_builder(400, {'error': f'Failed to parse CSV data: {str(e)}'})
         
         # Analyze data structure
         data_analysis = analyze_data_structure(df)
