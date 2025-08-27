@@ -234,8 +234,44 @@ def lambda_handler(event, context):
         except json.JSONDecodeError:
             return response_builder(400, {'error': 'Invalid JSON in request body'})
         
+        # Debug echo mode check
+        query_params = event.get('queryStringParameters') or {}
+        debug_echo_enabled = (
+            os.environ.get('LAMBDA_DEBUG_ECHO') == '1' or
+            query_params.get('echo') == '1'
+        )
+        
         # Auto-detect payload format first
         rows_data, csv_text = _autodetect_payload(body)
+        
+        # Calculate debug metrics
+        rows_detected = len(rows_data) if rows_data else 0
+        csv_len = len(csv_text) if csv_text else 0
+        
+        # Debug echo response if enabled
+        if debug_echo_enabled:
+            debug_info = {
+                "received_type": str(type(body).__name__),
+                "received_keys": list(body.keys()) if isinstance(body, dict) else None,
+                "raw_sample": str(body)[:1000],
+                "rows_detected": rows_detected,
+                "csv_len": csv_len
+            }
+            
+            response = {
+                "message": "Debug echo mode",
+                "format": body.get('format', 'json'),
+                "response": {
+                    "debug": debug_info,
+                    "summary": f"Debug: Detected {rows_detected} rows, CSV length: {csv_len} chars"
+                },
+                "engine": "debug",
+                "model": "echo",
+                "buildId": os.environ.get("BUILD_ID", "local")
+            }
+            
+            logger.info(f"[DEBUG ECHO] Returning debug response: {json.dumps(debug_info)}")
+            return response_builder(200, response)
         
         # If auto-detection found data, use it
         if rows_data:
@@ -292,7 +328,8 @@ def lambda_handler(event, context):
                 if response_format == 'text':
                     return response_builder(200, {
                         'analysis': claude_response,
-                        'data_info': data_analysis
+                        'data_info': data_analysis,
+                        'buildId': os.environ.get("BUILD_ID", "local")
                     })
                 else:
                     # For JSON format, we need to structure the response
@@ -303,7 +340,8 @@ def lambda_handler(event, context):
                         'full_analysis': claude_response,
                         'data_info': data_analysis,
                         'insights': ['Claude analysis completed successfully'],
-                        'recommendations': ['詳細な分析結果を確認してください']
+                        'recommendations': ['詳細な分析結果を確認してください'],
+                        'buildId': os.environ.get("BUILD_ID", "local")
                     })
                     
             except Exception as e:
@@ -313,6 +351,7 @@ def lambda_handler(event, context):
             # Use mock data for testing
             mock_insights = generate_mock_insights()
             mock_insights['data_info'] = data_analysis
+            mock_insights['buildId'] = os.environ.get("BUILD_ID", "local")
             return response_builder(200, mock_insights)
             
     except Exception as e:
