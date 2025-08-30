@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import ColumnMappingLearning from './components/ColumnMappingLearning'
+import SimpleAuth from './components/SimpleAuth'
 import { saveFormatProfile, getFormatProfile } from './lib/supabase'
 import { checkSupabaseConfig } from './lib/debug-supabase'
 
@@ -12,6 +13,15 @@ const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || "/api/analysis";
 
 // チャート用の色設定
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+
+// ユーザー型定義
+interface User {
+  id: string
+  name: string
+  company: string
+  usageCount: number
+  usageLimit: number
+}
 
 // 文字列化ヘルパー関数
 function stringifyForDisplay(payload: any): string {
@@ -123,6 +133,10 @@ const analyzeSalesData = (data: SalesData[]) => {
 };
 
 function App() {
+  // 認証状態
+  const [user, setUser] = useState<User | null>(null)
+  const [isAuthenticating, setIsAuthenticating] = useState(true)
+  
   const [prompt, setPrompt] = useState('')
   const [response, setResponse] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -134,6 +148,36 @@ function App() {
   const [showDataTable, setShowDataTable] = useState(false)
   const [showColumnMapping, setShowColumnMapping] = useState(false)
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({})
+
+  // 認証チェック（ページ読み込み時）
+  useEffect(() => {
+    const savedUser = localStorage.getItem('auth_user')
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser))
+      } catch (error) {
+        console.error('認証情報の読み込みエラー:', error)
+        localStorage.removeItem('auth_user')
+      }
+    }
+    setIsAuthenticating(false)
+  }, [])
+
+  // ログイン処理
+  const handleLogin = (loggedInUser: User) => {
+    setUser(loggedInUser)
+  }
+
+  // ログアウト処理
+  const handleLogout = () => {
+    setUser(null)
+    localStorage.removeItem('auth_user')
+    // 状態をリセット
+    setResponse('')
+    setSalesData([])
+    setIsFileUploaded(false)
+    setShowCharts(false)
+  }
 
   // 実際のデータからチャート用データを生成
   const generateChartData = () => {
@@ -894,6 +938,21 @@ ${dataTable}
     }
   }
 
+  // 認証チェック中
+  if (isAuthenticating) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <div>🔄 認証確認中...</div>
+      </div>
+    )
+  }
+
+  // 未認証の場合ログイン画面
+  if (!user) {
+    return <SimpleAuth onLogin={handleLogin} />
+  }
+
+  // 認証済みの場合メインアプリ
   return (
     <div style={{
       maxWidth: '800px',
@@ -901,13 +960,38 @@ ${dataTable}
       padding: '20px',
       fontFamily: 'Arial, sans-serif'
     }}>
-      <h1 style={{
-        color: '#333',
-        textAlign: 'center',
-        marginBottom: '30px'
-      }}>
-        Strategic AI Platform - 売上分析ツール
-      </h1>
+      {/* ヘッダー */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <h1 style={{
+          color: '#333',
+          margin: 0
+        }}>
+          📊 Strategic AI Platform - 売上分析ツール
+        </h1>
+        
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '5px' }}>
+            👤 {user.name} ({user.company})
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>
+            使用回数: {user.usageCount} / {user.usageLimit}
+          </div>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '5px 15px',
+              fontSize: '0.8rem',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            ログアウト
+          </button>
+        </div>
+      </div>
 
       {/* ファイルアップロードセクション（ドラッグ&ドロップ対応） */}
       <div 
