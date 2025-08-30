@@ -330,21 +330,22 @@ def lambda_handler(event, context):
         try: return f"{int(n):,} 円"
         except: return str(n)
 
-    # シンプルな日本語レポート（presentation_md）
-    trend_text = "\n".join([f"{t.get('date','日付不明')}: {_fmt_yen(t.get('sales',0))}" 
-                           for t in (stats.get('timeseries',[])[:3])])
+    # 自然な日本語レポート（presentation_md） - 記号除去
+    trend_list = stats.get('timeseries',[])[:3]
+    trend_text = ""
+    if trend_list:
+        trend_parts = []
+        for t in trend_list:
+            date = t.get('date','')
+            sales = t.get('sales',0)
+            if date and sales:
+                trend_parts.append(f"{date}に{int(sales):,}円")
+        trend_text = "、".join(trend_parts) if trend_parts else "データがありません"
     
-    presentation_md = f"""売上分析結果
-
-データ件数: {total}件を分析しました
-
-売上合計: {_fmt_yen(stats.get('total_sales',0))}
-平均売上: {_fmt_yen(stats.get('avg_row_sales',0))}
-
-主な売上日:
-{trend_text}
-
-※この結果は売上データの分析です"""
+    total_sales = stats.get('total_sales',0)
+    avg_sales = stats.get('avg_row_sales',0)
+    
+    presentation_md = f"""{total}件のデータを分析しました。売上合計は{int(total_sales):,}円で、1件あたり平均{int(avg_sales):,}円でした。主な売上は{trend_text}となっています。"""
 
     # Response - 技術的な部分を最小化
     if fmt == "markdown" or fmt == "text":
@@ -358,11 +359,13 @@ def lambda_handler(event, context):
             "model": MODEL_ID
         }
     else:
-        # JSON形式は構造化データも含むが、presentation_mdを優先表示用に
+        # JSON形式: 自然な説明 + 区切り線 + データ証拠
+        separator_line = "---以下は読み込んだデータの証拠です---"
         body = {
             "response": {
                 "summary_ai": summary_ai,
                 "presentation_md": presentation_md,
+                "separator": separator_line,
                 "key_insights": findings,
                 "data_analysis": {
                     "total_records": total,
