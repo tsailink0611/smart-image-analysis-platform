@@ -71,9 +71,13 @@ aws lambda update-function-configuration \
 
 ### Environment Variables (Lambda)
 - `USE_CLAUDE_API`: Enable/disable real AI analysis (`true`/`false`)
-- `BEDROCK_MODEL_ID`: Claude model identifier
+- `BEDROCK_MODEL_ID`: Model identifier (default: `us.deepseek.r1-v1:0`)
 - `LAMBDA_DEBUG_ECHO`: Debug mode for payload inspection (`0`/`1`)
 - `BUILD_ID`: Build identifier for tracking
+- `FORCE_JA`: Force Japanese output regardless of instruction (`true`/`false`)
+- `TEMPERATURE`: Model temperature (default: `0.15` for stability)
+- `MAX_TOKENS`: Maximum response tokens (default: `2000`)
+- `DEFAULT_FORMAT`: Default response format (`json`/`markdown`/`text`)
 
 ### Frontend Environment
 ```bash
@@ -123,17 +127,40 @@ The project has been refactored to use a Single Source of Truth architecture:
 ## 📈 Features
 
 - **Flexible Input**: Auto-detects various CSV and JSON formats
-- **AI Analysis**: Comprehensive sales analysis using Claude 3 Sonnet
+- **AI Analysis**: Comprehensive sales analysis using DeepSeek R1
+- **Japanese Output**: System message + prompt enforcement for consistent Japanese responses
+- **Multi-Format**: JSON/Markdown/Text response formats via `responseFormat` field
 - **Debug Tools**: Payload inspection and debugging capabilities
 - **CORS Support**: Full CORS headers for frontend integration
 - **Error Handling**: Comprehensive error handling and logging
-- **Mock Mode**: Testing with mock data when API is disabled
 
 ## 🔗 External Dependencies
 
-- AWS Bedrock (Claude 3 Sonnet)
+- AWS Bedrock (DeepSeek R1: `us.deepseek.r1-v1:0`)
 - AWS Lambda Function URL: https://h6util56iwzeyadx6kbjyuakbi0zuucm.lambda-url.us-east-1.on.aws/
 - AWS Amplify (Frontend hosting with API rewrites)
+
+## 🧪 Smoke Test
+
+### JSON Format Test:
+```powershell
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$LAMBDA_URL = "https://h6util56iwzeyadx6kbjyuakbi0zuucm.lambda-url.us-east-1.on.aws/"
+$BODY='{"salesData":[{"date":"2025-08-01","region":"East","channel":"Online","amount":18000,"orders":45},{"date":"2025-08-02","region":"West","channel":"Store","amount":9000,"orders":25}], "instruction":"日本語のみで、KPI・要点・トレンドを簡潔に。", "responseFormat":"json"}'
+Invoke-RestMethod -Method Post -Uri $LAMBDA_URL -ContentType "application/json; charset=utf-8" -Body $BODY
+```
+
+### Markdown Format Test:
+```powershell
+$BODY='{"salesData":[{"date":"2025-08-01","region":"East","channel":"Online","amount":18000,"orders":45},{"date":"2025-08-02","region":"West","channel":"Store","amount":9000,"orders":25}], "instruction":"日本語のみで、KPI・要点・トレンド・提案を箇条書きで簡潔に。", "responseFormat":"markdown"}'
+Invoke-RestMethod -Method Post -Uri $LAMBDA_URL -ContentType "application/json; charset=utf-8" -Body $BODY
+```
+
+### Expected Response:
+- `message: "OK"`
+- `engine: "bedrock"`
+- `model: "us.deepseek.r1-v1:0"`
+- `response.summary_ai`: Japanese text (JSON format: overview field, Markdown format: natural text)
 
 ## 📝 Development Notes
 

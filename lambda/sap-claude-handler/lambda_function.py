@@ -10,7 +10,7 @@ MODEL_ID       = os.environ.get("BEDROCK_MODEL_ID", "us.deepseek.r1-v1:0")
 REGION         = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
 DEFAULT_FORMAT = (os.environ.get("DEFAULT_FORMAT", "json") or "json").lower()  # 'json'|'markdown'|'text'
 MAX_TOKENS     = int(os.environ.get("MAX_TOKENS", "2000"))
-TEMPERATURE    = float(os.environ.get("TEMPERATURE", "0.2"))
+TEMPERATURE    = float(os.environ.get("TEMPERATURE", "0.15"))
 
 # ====== LOG ======
 logger = logging.getLogger()
@@ -146,6 +146,7 @@ def _build_prompt_json(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> s
 - 外部知識・想像は禁止（与えられた情報のみ）
 - 箇条書きは最大3点
 - 出力はJSONのみ（自然文禁止）
+- 出力は必ず日本語（overview/findings/kpis/trend 含めてすべて）
 - 期待スキーマ: {json.dumps(schema_hint, ensure_ascii=False)}
 
 [統計要約]
@@ -160,6 +161,7 @@ def _build_prompt_markdown(stats: Dict[str, Any], sample: List[Dict[str, Any]]) 
 
 # 概要
 - 与えられた情報のみを根拠（外部知識は禁止）
+- 出力は必ず日本語（英語混在禁止）
 - 箇条書き中心で最大10行
 
 # 統計要約
@@ -171,6 +173,8 @@ def _build_prompt_markdown(stats: Dict[str, Any], sample: List[Dict[str, Any]]) 
 
 def _build_prompt_text(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> str:
     return f"""あなたは売上データのアナリストです。以下の情報のみを根拠に、日本語で3行以内の要約を出してください。
+
+- 出力は必ず日本語（英語混在禁止）
 
 [統計要約]
 {json.dumps(stats, ensure_ascii=False)}
@@ -194,13 +198,16 @@ def _parse_csv_simple(csv_text: str) -> List[Dict[str, Any]]:
 
 def _bedrock_converse(model_id: str, region: str, prompt: str) -> str:
     client = boto3.client("bedrock-runtime", region_name=region)
+    system_ja = [{"text": "以後のすべての回答は必ず日本語。英語・ローマ字の混在は禁止。"}]
     resp = client.converse(
         modelId=model_id,
+        system=system_ja,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
         inferenceConfig={"maxTokens": MAX_TOKENS, "temperature": TEMPERATURE}
     )
     msg = resp.get("output", {}).get("message", {})
     parts = msg.get("content", [])
+    # textのみ抽出。reasoningContentは無視。
     txts = [p.get("text") for p in parts if "text" in p]
     return "\n".join([t for t in txts if t]).strip()
 
@@ -239,6 +246,11 @@ def lambda_handler(event, context):
     # Inputs
     instruction = (data.get("instruction") or data.get("prompt") or "").strip()
     fmt = (data.get("responseFormat") or DEFAULT_FORMAT or "json").lower()
+    
+    # FORCE_JA option
+    force_ja = os.environ.get("FORCE_JA","false").lower() in ("1","true")
+    if force_ja:
+        instruction = ("日本語のみで、数値は半角。KPI・要点・トレンドを簡潔に。" + (" " + instruction if instruction else ""))
 
     # Prefer salesData (array). Optionally accept csv.
     sales: List[Dict[str, Any]] = []
