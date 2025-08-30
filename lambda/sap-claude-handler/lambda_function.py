@@ -277,6 +277,67 @@ def _get_data_type_name(data_type: str) -> str:
     }
     return type_names.get(data_type, "財務データ")
 
+def validate_analysis_compatibility(detected_data_type: str, requested_analysis_type: str) -> Tuple[bool, str]:
+    """データタイプと分析タイプの適合性をチェック"""
+    # 適合性マトリックス
+    compatibility_matrix = {
+        'sales': {
+            'allowed': ['sales_data'],
+            'name': '売上分析',
+            'required_data': '売上データ（日付・商品・金額など）'
+        },
+        'hr': {
+            'allowed': ['hr_data'],
+            'name': '人事分析',
+            'required_data': '人事データ（給与・勤怠・評価など）'
+        },
+        'marketing': {
+            'allowed': ['marketing_data'],
+            'name': 'マーケティングROI分析',
+            'required_data': 'マーケティングデータ（広告費・コンバージョン・ROASなど）'
+        },
+        'strategic': {
+            'allowed': ['pl_statement', 'balance_sheet', 'cashflow_statement', 'financial_data', 'sales_data'],
+            'name': '統合戦略分析',
+            'required_data': '財務データ（PL表・BS・CF・売上データなど）'
+        }
+    }
+    
+    # リクエストタイプが存在しない場合は通す
+    if requested_analysis_type not in compatibility_matrix:
+        return True, ""
+    
+    config = compatibility_matrix[requested_analysis_type]
+    
+    # 適合性チェック
+    if detected_data_type not in config['allowed']:
+        # 適切なボタンを提案
+        correct_button = None
+        for btn_type, btn_config in compatibility_matrix.items():
+            if detected_data_type in btn_config['allowed']:
+                correct_button = btn_config['name']
+                break
+        
+        # エラーメッセージ構築
+        error_msg = f"""
+❌ データタイプ不一致
+
+選択された分析: {config['name']}
+必要なデータ: {config['required_data']}
+アップロードされたデータ: {_get_data_type_name(detected_data_type)}
+
+申し訳ございませんが、{config['name']}には適切なデータ形式が必要です。
+"""
+        
+        if correct_button:
+            error_msg += f"\n✅ このデータには「{correct_button}」ボタンをご利用ください。"
+        else:
+            error_msg += "\n適切なデータをアップロードし直してください。"
+        
+        return False, error_msg
+    
+    return True, ""
+
 def _get_analysis_instructions(data_type: str) -> str:
     """データタイプ別の分析指示を返す"""
     instructions = {
@@ -406,19 +467,42 @@ def lambda_handler(event, context):
     columns = list(sales[0].keys()) if sales else []
     total = len(sales)
 
-    # データタイプ判別（フロントエンド指定を優先）
+    # まずデータタイプを自動判別
+    detected_data_type = _identify_data_type(columns, sales[:5] if sales else [])
+    
+    # 適合性チェック（フロントエンドから分析タイプが指定されている場合）
     if requested_analysis_type:
-        # フロントエンドからの明示的指定をマッピング
+        is_compatible, error_message = validate_analysis_compatibility(detected_data_type, requested_analysis_type)
+        
+        if not is_compatible:
+            # 不適合の場合はエラーレスポンスを返す
+            return response_json(200, {
+                "response": {
+                    "summary_ai": error_message,
+                    "presentation_md": error_message,
+                    "key_insights": [],
+                    "data_analysis": {
+                        "total_records": total,
+                        "detected_type": _get_data_type_name(detected_data_type),
+                        "requested_type": requested_analysis_type
+                    }
+                },
+                "format": fmt,
+                "message": "DATA_TYPE_MISMATCH",
+                "model": MODEL_ID
+            })
+        
+        # 適合している場合は要求された分析タイプを使用
         type_mapping = {
             'sales': 'sales_data',
             'hr': 'hr_data', 
             'marketing': 'marketing_data',
-            'strategic': 'financial_data'  # 統合戦略分析は汎用財務として処理
+            'strategic': detected_data_type  # 統合戦略は実際のデータタイプを使用
         }
-        data_type = type_mapping.get(requested_analysis_type, 'financial_data')
+        data_type = type_mapping.get(requested_analysis_type, detected_data_type)
     else:
-        # 自動判別
-        data_type = _identify_data_type(columns, sales[:5] if sales else [])
+        # 分析タイプが指定されていない場合は自動判別結果を使用
+        data_type = detected_data_type
     
     stats = _compute_stats(sales)
     sample = sales[:50] if sales else []
