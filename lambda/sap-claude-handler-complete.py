@@ -2,7 +2,7 @@ import json
 import boto3
 import os
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 import pandas as pd
 from io import StringIO
 
@@ -12,50 +12,6 @@ logger.setLevel(logging.INFO)
 
 # Initialize Bedrock client
 bedrock_runtime = boto3.client('bedrock-runtime', region_name='us-east-1')
-
-# ---- TEMP: early echo (remove after debug) ----
-def _early_echo(event):
-    import os, base64
-    # 有効化は環境変数で制御（LAMBDA_DEBUG_ECHO=1）
-    if os.environ.get("LAMBDA_DEBUG_ECHO") not in ("1","true","TRUE"):
-        return None
-
-    body_raw = event.get("body")
-    enc = event.get("isBase64Encoded")
-
-    # Base64対策
-    if enc and isinstance(body_raw, str):
-        try:
-            b = base64.b64decode(body_raw)
-            try:
-                body_text = b.decode("utf-8-sig")
-            except Exception:
-                body_text = b.decode("utf-8", errors="ignore")
-        except Exception:
-            body_text = "<base64 decode error>"
-    elif isinstance(body_raw, (bytes, bytearray)):
-        try:
-            body_text = body_raw.decode("utf-8-sig")
-        except Exception:
-            body_text = body_raw.decode("utf-8", errors="ignore")
-    else:
-        body_text = body_raw if isinstance(body_raw, str) else (str(body_raw) if body_raw is not None else "")
-
-    sample = body_text[:1000] if isinstance(body_text, str) else str(type(body_text))
-
-    return {
-        "message": "DEBUG",
-        "format": "json",
-        "engine": "bedrock",
-        "model": os.environ.get("BEDROCK_MODEL_ID","<unset>"),
-        "response": {
-            "echo": "early",
-            "isBase64Encoded": bool(enc),
-            "received_type": type(body_raw).__name__ if body_raw is not None else "None",
-            "raw_sample": sample
-        }
-    }
-# ---- /TEMP ----
 
 def response_builder(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
     """Build API Gateway response with proper CORS headers"""
@@ -80,55 +36,6 @@ def parse_csv_data(csv_content: str) -> pd.DataFrame:
     except Exception as e:
         logger.error(f"Error parsing CSV: {str(e)}")
         raise
-
-def parse_csv_to_rows(csv_content: str) -> List[Dict[str, Any]]:
-    """Parse CSV content to list of dictionaries"""
-    try:
-        df = parse_csv_data(csv_content)
-        return df.to_dict('records')
-    except Exception as e:
-        logger.error(f"Error parsing CSV to rows: {str(e)}")
-        raise
-
-def _autodetect_payload(body: Dict[str, Any]) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
-    """
-    Auto-detect rows and CSV data from payload
-    Returns: (rows, csv_text)
-    """
-    rows = None
-    csv_text = None
-    
-    # Row data detection (priority order)
-    row_keys = ['rows', 'dataRows', 'records', 'table', 'data', 'salesData']
-    for key in row_keys:
-        if key in body and body[key]:
-            data = body[key]
-            if isinstance(data, list) and len(data) > 0:
-                rows = data
-                print(f"[AUTODETECT] Found rows data in '{key}': {len(rows)} rows")  # テスト用ログ
-                break
-    
-    # CSV text detection (priority order)
-    csv_keys = ['csv', 'fileContent', 'input', 'text', 'content', 'csvData']
-    for key in csv_keys:
-        if key in body and body[key]:
-            data = body[key]
-            if isinstance(data, str) and len(data.strip()) > 0:
-                csv_text = data
-                print(f"[AUTODETECT] Found CSV data in '{key}': {len(csv_text)} chars")  # テスト用ログ
-                break
-    
-    # Convert CSV to rows if needed
-    if csv_text and not rows:
-        try:
-            rows = parse_csv_to_rows(csv_text)
-            print(f"[AUTODETECT] Converted CSV to rows: {len(rows)} rows")  # テスト用ログ
-        except Exception as e:
-            logger.warning(f"Failed to convert CSV to rows: {str(e)}")
-    
-    print(f"[AUTODETECT] Final result - rows: {len(rows) if rows else 0}, csv_text: {len(csv_text) if csv_text else 0} chars")  # テスト用ログ
-    
-    return rows, csv_text
 
 def analyze_data_structure(df: pd.DataFrame) -> Dict[str, Any]:
     """Analyze the structure and basic statistics of the data"""
@@ -260,15 +167,8 @@ def generate_mock_insights() -> Dict[str, Any]:
 def lambda_handler(event, context):
     """Main Lambda handler"""
     try:
-        # Early echo for debugging
-        resp = _early_echo(event)
-        if resp is not None:
-            return response_builder(200, resp)
-        
-        # Handle OPTIONS request for CORS (support both v1 and v2 API Gateway formats)
-        http_method = event.get('httpMethod') or event.get('requestContext', {}).get('http', {}).get('method')
-        if http_method == 'OPTIONS':
-            logger.info("Handling OPTIONS preflight request")
+        # Handle OPTIONS request for CORS
+        if event.get('httpMethod') == 'OPTIONS':
             return response_builder(200, {'message': 'CORS preflight successful'})
         
         # Log the event for debugging
@@ -283,84 +183,19 @@ def lambda_handler(event, context):
         except json.JSONDecodeError:
             return response_builder(400, {'error': 'Invalid JSON in request body'})
         
-        # Debug echo mode check
-        query_params = event.get('queryStringParameters') or {}
-        debug_echo_enabled = (
-            os.environ.get('LAMBDA_DEBUG_ECHO') == '1' or
-            query_params.get('echo') == '1'
-        )
+        # Validate required fields
+        if 'csvData' not in body:
+            return response_builder(400, {'error': 'csvData field is required'})
         
-        # Auto-detect payload format first
-        rows_data, csv_text = _autodetect_payload(body)
+        csv_content = body['csvData']
+        response_format = body.get('format', 'json')  # 'json' or 'text'
         
-        # Calculate debug metrics
-        rows_detected = len(rows_data) if rows_data else 0
-        csv_len = len(csv_text) if csv_text else 0
-        
-        # Debug echo response if enabled
-        if debug_echo_enabled:
-            debug_info = {
-                "received_type": str(type(body).__name__),
-                "received_keys": list(body.keys()) if isinstance(body, dict) else None,
-                "raw_sample": str(body)[:1000],
-                "rows_detected": rows_detected,
-                "csv_len": csv_len
-            }
-            
-            response = {
-                "message": "Debug echo mode",
-                "format": body.get('format', 'json'),
-                "response": {
-                    "debug": debug_info,
-                    "summary": f"Debug: Detected {rows_detected} rows, CSV length: {csv_len} chars"
-                },
-                "engine": "debug",
-                "model": "echo",
-                "buildId": os.environ.get("BUILD_ID", "local")
-            }
-            
-            logger.info(f"[DEBUG ECHO] Returning debug response: {json.dumps(debug_info)}")
-            return response_builder(200, response)
-        
-        # If auto-detection found data, use it
-        if rows_data:
-            # Use detected rows directly
-            df = pd.DataFrame(rows_data)
-            logger.info(f"[AUTODETECT SUCCESS] Using detected rows: {len(df)} rows, {len(df.columns)} columns")
-        elif csv_text:
-            # Parse detected CSV text
-            try:
-                df = parse_csv_data(csv_text)
-                logger.info(f"[AUTODETECT SUCCESS] Using detected CSV: {len(df)} rows, {len(df.columns)} columns")
-            except Exception as e:
-                logger.error(f"[AUTODETECT] Failed to parse detected CSV: {str(e)}")
-                return response_builder(400, {'error': f'Failed to parse detected CSV data: {str(e)}'})
-        else:
-            # Fallback to existing logic
-            logger.info("[AUTODETECT] No data detected, falling back to existing logic")
-            csv_data = None
-            if 'csvData' in body:
-                csv_data = body['csvData']
-            elif 'data' in body or 'salesData' in body:
-                # Convert array data to CSV format
-                array_data = body.get('data') or body.get('salesData')
-                if isinstance(array_data, list) and len(array_data) > 0:
-                    # Convert array of objects to CSV
-                    df = pd.DataFrame(array_data)
-                    csv_data = df.to_csv(index=False)
-                else:
-                    return response_builder(400, {'error': 'Data field must be a non-empty array'})
-            else:
-                return response_builder(400, {'error': 'No valid data found. Expected: rows, data, salesData, csvData, or CSV content'})
-            
-            if csv_data:
-                csv_content = csv_data
-                # Parse CSV data
-                try:
-                    df = parse_csv_data(csv_content)
-                    logger.info(f"[FALLBACK SUCCESS] Parsed CSV: {len(df)} rows, {len(df.columns)} columns")
-                except Exception as e:
-                    return response_builder(400, {'error': f'Failed to parse CSV data: {str(e)}'})
+        # Parse CSV data
+        try:
+            df = parse_csv_data(csv_content)
+            logger.info(f"Successfully parsed CSV with {len(df)} rows and {len(df.columns)} columns")
+        except Exception as e:
+            return response_builder(400, {'error': f'Failed to parse CSV data: {str(e)}'})
         
         # Analyze data structure
         data_analysis = analyze_data_structure(df)
@@ -377,8 +212,7 @@ def lambda_handler(event, context):
                 if response_format == 'text':
                     return response_builder(200, {
                         'analysis': claude_response,
-                        'data_info': data_analysis,
-                        'buildId': os.environ.get("BUILD_ID", "local")
+                        'data_info': data_analysis
                     })
                 else:
                     # For JSON format, we need to structure the response
@@ -389,8 +223,7 @@ def lambda_handler(event, context):
                         'full_analysis': claude_response,
                         'data_info': data_analysis,
                         'insights': ['Claude analysis completed successfully'],
-                        'recommendations': ['詳細な分析結果を確認してください'],
-                        'buildId': os.environ.get("BUILD_ID", "local")
+                        'recommendations': ['詳細な分析結果を確認してください']
                     })
                     
             except Exception as e:
@@ -400,7 +233,6 @@ def lambda_handler(event, context):
             # Use mock data for testing
             mock_insights = generate_mock_insights()
             mock_insights['data_info'] = data_analysis
-            mock_insights['buildId'] = os.environ.get("BUILD_ID", "local")
             return response_builder(200, mock_insights)
             
     except Exception as e:

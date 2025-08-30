@@ -1,0 +1,6 @@
+{
+  "environment": {
+    "SUPABASE_URL": "https://fggpltpqtkebkwkqyzkh.supabase.co",
+    "SUPABASE_SERVICE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnZ3BsdHBxdGtlYmt3a3F5emtoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyNDM0NjAzNCwiZXhwIjoyMDM5OTIyMDM0fQ.Wv0kBM7x1ggcK9F4zIxTQ-8jU-7dn_VVz_1mD3ycBn8"
+  }
+}
