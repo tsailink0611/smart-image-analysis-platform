@@ -249,6 +249,16 @@ def _identify_data_type(columns: List[str], sample_data: List[Dict[str, Any]]) -
     if any(keyword in col_str for keyword in inventory_keywords):
         return "inventory_data"
     
+    # 人事データのキーワード
+    hr_keywords = ["社員", "employee", "給与", "salary", "賃金", "wage", "勤怠", "attendance", "残業", "overtime", "部署", "department", "評価", "performance", "人事", "hr", "採用", "recruitment", "離職", "turnover"]
+    if any(keyword in col_str for keyword in hr_keywords):
+        return "hr_data"
+    
+    # マーケティングデータのキーワード
+    marketing_keywords = ["広告", "ad", "campaign", "マーケティング", "marketing", "cpc", "ctr", "conversion", "roi", "roas", "リード", "lead", "獲得", "acquisition", "顧客", "customer", "コスト", "cost", "チャネル", "channel"]
+    if any(keyword in col_str for keyword in marketing_keywords):
+        return "marketing_data"
+    
     # 既定値：汎用財務データ
     return "financial_data"
 
@@ -260,6 +270,8 @@ def _get_data_type_name(data_type: str) -> str:
         "cashflow_statement": "キャッシュフロー計算書",
         "sales_data": "売上データ",
         "inventory_data": "在庫データ",
+        "hr_data": "人事データ",
+        "marketing_data": "マーケティングデータ",
         "financial_data": "財務データ",
         "unknown": "不明なデータ"
     }
@@ -297,6 +309,20 @@ def _get_analysis_instructions(data_type: str) -> str:
 - 在庫回転率や滞留在庫があれば指摘してください
 - 適正在庫レベルと過剰在庫のリスクを評価してください
 - 在庫管理の改善点があれば提案してください""",
+        
+        "hr_data": """
+- 部署別・職位別の人件費分析を行ってください
+- 給与水準の適正性と業界標準との比較を確認してください
+- 残業時間と生産性の関係を分析してください
+- 離職率や採用コストの傾向があれば指摘してください
+- 人員配置の最適化と働き方改革の提案を行ってください""",
+        
+        "marketing_data": """
+- チャネル別の広告費対効果（ROAS）を計算してください
+- 顧客獲得コスト（CAC）と生涯価値（LTV）を分析してください
+- コンバージョン率とクリック率の改善点を指摘してください
+- 最も効率的なマーケティング施策を特定してください
+- 予算配分の最適化とROI向上策を提案してください""",
         
         "financial_data": """
 - データの主要な項目と数値を確認してください
@@ -358,6 +384,7 @@ def lambda_handler(event, context):
     # Inputs
     instruction = (data.get("instruction") or data.get("prompt") or "").strip()
     fmt = (data.get("responseFormat") or DEFAULT_FORMAT or "json").lower()
+    requested_analysis_type = data.get("analysisType", "").strip()
     
     # FORCE_JA option
     force_ja = os.environ.get("FORCE_JA","false").lower() in ("1","true")
@@ -379,8 +406,19 @@ def lambda_handler(event, context):
     columns = list(sales[0].keys()) if sales else []
     total = len(sales)
 
-    # データタイプ自動判別
-    data_type = _identify_data_type(columns, sales[:5] if sales else [])
+    # データタイプ判別（フロントエンド指定を優先）
+    if requested_analysis_type:
+        # フロントエンドからの明示的指定をマッピング
+        type_mapping = {
+            'sales': 'sales_data',
+            'hr': 'hr_data', 
+            'marketing': 'marketing_data',
+            'strategic': 'financial_data'  # 統合戦略分析は汎用財務として処理
+        }
+        data_type = type_mapping.get(requested_analysis_type, 'financial_data')
+    else:
+        # 自動判別
+        data_type = _identify_data_type(columns, sales[:5] if sales else [])
     
     stats = _compute_stats(sales)
     sample = sales[:50] if sales else []
