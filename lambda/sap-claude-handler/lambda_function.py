@@ -359,14 +359,14 @@ def lambda_handler(event, context):
             "model": MODEL_ID
         }
     else:
-        # JSON形式: 自然な説明 + 区切り線 + データ証拠
+        # JSON形式: 自然な説明群 + 区切り線 + データ証拠
         separator_line = "---以下は読み込んだデータの証拠です---"
         body = {
             "response": {
                 "summary_ai": summary_ai,
                 "presentation_md": presentation_md,
-                "separator": separator_line,
                 "key_insights": findings,
+                "separator": separator_line,
                 "data_analysis": {
                     "total_records": total,
                     "kpis": kpis,
