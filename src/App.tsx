@@ -151,6 +151,23 @@ function App() {
 
   // 認証チェック（ページ読み込み時）
   useEffect(() => {
+    // 開発環境では認証をスキップ
+    const isProduction = import.meta.env.PROD
+    if (!isProduction) {
+      // 開発用のデフォルトユーザー
+      const devUser: User = {
+        id: 'dev',
+        name: '開発者',
+        company: 'ローカル開発',
+        usageCount: 0,
+        usageLimit: 999
+      }
+      setUser(devUser)
+      setIsAuthenticating(false)
+      return
+    }
+
+    // 本番環境では通常の認証処理
     const savedUser = localStorage.getItem('auth_user')
     if (savedUser) {
       try {
