@@ -1,6 +1,25 @@
 {
-  "environment": {
-    "SUPABASE_URL": "https://fggpltpqtkebkwkqyzkh.supabase.co",
-    "SUPABASE_SERVICE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnZ3BsdHBxdGtlYmt3a3F5emtoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyNDM0NjAzNCwiZXhwIjoyMDM5OTIyMDM0fQ.Wv0kBM7x1ggcK9F4zIxTQ-8jU-7dn_VVz_1mD3ycBn8"
+  "lambda": {
+    "function_name": "sap-claude-handler",
+    "source_path": "lambda/sap-claude-handler/lambda_function.py",
+    "handler": "lambda_function.lambda_handler",
+    "runtime": "python3.9",
+    "timeout": 300,
+    "memory_size": 1024,
+    "environment": {
+      "USE_CLAUDE_API": "true",
+      "BEDROCK_MODEL_ID": "anthropic.claude-3-sonnet-20240229-v1:0",
+      "LAMBDA_DEBUG_ECHO": "0",
+      "BUILD_ID": "ssot-v1"
+    }
+  },
+  "deployment": {
+    "region": "us-east-1",
+    "archive_path": "lambda/archive/",
+    "zip_file": "sap-claude-handler.zip"
+  },
+  "legacy": {
+    "supabase_url": "https://fggpltpqtkebkwkqyzkh.supabase.co",
+    "supabase_service_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnZ3BsdHBxdGtlYmt3a3F5emtoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyNDM0NjAzNCwiZXhwIjoyMDM5OTIyMDM0fQ.Wv0kBM7x1ggcK9F4zIxTQ-8jU-7dn_VVz_1mD3ycBn8"
   }
 }

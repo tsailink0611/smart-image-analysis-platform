@@ -8,17 +8,17 @@ Write-Host ""
 $originalPath = Get-Location
 
 try {
-    # Lambda関数のパッケージング
+    # Lambda関数のパッケージング (SSOT版)
     Write-Host "📦 Lambda関数をパッケージング中..." -ForegroundColor Yellow
     Set-Location -Path "lambda"
     
-    # メイン関数のZIP作成
-    Write-Host "  - sap-claude-handler.zip を作成中..."
+    # SSOT: sap-claude-handler (統合版) のZIP作成
+    Write-Host "  - sap-claude-handler.zip (SSOT版) を作成中..."
     if (Test-Path "sap-claude-handler.zip") {
         Remove-Item "sap-claude-handler.zip"
     }
-    Compress-Archive -Path "sap-claude-handler.py", "requirements.txt" -DestinationPath "sap-claude-handler.zip"
-    Write-Host "  ✅ メイン関数のパッケージ完了" -ForegroundColor Green
+    Compress-Archive -Path "sap-claude-handler\lambda_function.py", "requirements.txt" -DestinationPath "sap-claude-handler.zip"
+    Write-Host "  ✅ SSOT Lambda関数のパッケージ完了" -ForegroundColor Green
     
     # フォーマット学習関数のZIP作成
     Write-Host "  - format-learning-handler.zip を作成中..."
@@ -55,12 +55,12 @@ try {
     
     # 次のステップを表示
     Write-Host "📝 次のステップ:" -ForegroundColor Yellow
-    Write-Host "  1. AWS CLIでLambda関数をアップロード:"
+    Write-Host "  1. AWS CLIでLambda関数をアップロード (SSOT版):"
     Write-Host "     aws lambda update-function-code --function-name sap-claude-handler --zip-file fileb://lambda/sap-claude-handler.zip" -ForegroundColor Gray
     Write-Host "     aws lambda update-function-code --function-name format-learning-handler --zip-file fileb://lambda/format-learning-handler.zip" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  2. 環境変数を設定（deployment-config.jsonから自動設定）:"
-    Write-Host "     aws lambda update-function-configuration --function-name sap-claude-handler --environment Variables=`"{SUPABASE_URL=https://fggpltpqtkebkwkqyzkh.supabase.co,SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnZ3BsdHBxdGtlYmt3a3F5emtoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyNDM0NjAzNCwiZXhwIjoyMDM5OTIyMDM0fQ.Wv0kBM7x1ggcK9F4zIxTQ-8jU-7dn_VVz_1mD3ycBn8}`"" -ForegroundColor Gray
+    Write-Host "  2. 環境変数を設定 (deployment-config.jsonの新構成):"
+    Write-Host "     aws lambda update-function-configuration --function-name sap-claude-handler --environment Variables=`"{USE_CLAUDE_API=true,BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0,LAMBDA_DEBUG_ECHO=0,BUILD_ID=ssot-v1}`"" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  3. Vercelにデプロイ:"
     Write-Host "     vercel --prod" -ForegroundColor Gray

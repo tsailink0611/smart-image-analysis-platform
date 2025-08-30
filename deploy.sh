@@ -38,16 +38,18 @@ command -v zip >/dev/null 2>&1 || error "zipがインストールされていま
 
 success "必要なツールが全て利用可能です"
 
-# 1. Lambda関数のデプロイ
+# 1. Lambda関数のデプロイ (SSOT版)
 echo ""
 echo "📦 Lambda関数をパッケージング中..."
 
 cd lambda
 
-# メイン関数のパッケージング
-echo "  - sap-claude-handler-v2をパッケージング..."
-zip -q function-v2.zip sap-claude-handler-v2.py requirements.txt
-success "メイン関数のパッケージ完了"
+# SSOT: sap-claude-handler (統合版)
+echo "  - sap-claude-handler (SSOT版) をパッケージング..."
+cd sap-claude-handler
+zip -q ../sap-claude-handler.zip lambda_function.py ../requirements.txt
+cd ..
+success "SSOT Lambda関数のパッケージ完了"
 
 # フォーマット学習関数のパッケージング
 echo "  - format-learning-handlerをパッケージング..."
@@ -58,13 +60,13 @@ success "フォーマット学習関数のパッケージ完了"
 echo ""
 echo "☁️  Lambda関数をAWSにデプロイ中..."
 
-# メイン関数のデプロイ
-FUNCTION_NAME="sap-claude-handler-v2"
+# SSOT: sap-claude-handler (統合版)
+FUNCTION_NAME="sap-claude-handler"
 if aws lambda get-function --function-name $FUNCTION_NAME 2>/dev/null; then
     echo "  - 既存の関数 $FUNCTION_NAME を更新中..."
     aws lambda update-function-code \
         --function-name $FUNCTION_NAME \
-        --zip-file fileb://function-v2.zip \
+        --zip-file fileb://sap-claude-handler.zip \
         --no-cli-pager > /dev/null
     success "$FUNCTION_NAME の更新完了"
 else
@@ -85,7 +87,7 @@ else
 fi
 
 # クリーンアップ
-rm -f function-v2.zip function-format.zip
+rm -f sap-claude-handler.zip function-format.zip
 cd ..
 
 # 2. フロントエンドのビルド
