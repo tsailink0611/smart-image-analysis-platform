@@ -23,6 +23,54 @@ interface User {
   usageLimit: number
 }
 
+// 分析タイプ定義
+interface AnalysisType {
+  id: string
+  name: string
+  description: string
+  icon: string
+  tier: 'basic' | 'premium' | 'enterprise'
+}
+
+const ANALYSIS_TYPES: AnalysisType[] = [
+  {
+    id: 'sales',
+    name: '売上分析',
+    description: '売上データ・収益分析・トレンド把握',
+    icon: '📊',
+    tier: 'basic'
+  },
+  {
+    id: 'hr',
+    name: '人事分析',
+    description: '給与・勤怠・人員最適化・離職率分析',
+    icon: '👥',
+    tier: 'premium'
+  },
+  {
+    id: 'marketing',
+    name: 'マーケティングROI分析',
+    description: '広告効果・顧客獲得コスト・ROAS分析',
+    icon: '📈',
+    tier: 'premium'
+  },
+  {
+    id: 'strategic',
+    name: '統合戦略分析',
+    description: 'PL・BS・CF総合コンサルティング',
+    icon: '🎯',
+    tier: 'enterprise'
+  }
+]
+
+// ユーザー権限マッピング
+const USER_ACCESS: Record<string, string[]> = {
+  'demo': ['sales'],
+  'client_abc': ['sales', 'hr'],
+  'admin': ['sales', 'hr', 'marketing', 'strategic'],
+  'dev': ['sales', 'hr', 'marketing', 'strategic']
+}
+
 // 文字列化ヘルパー関数
 function stringifyForDisplay(payload: any): string {
   try {
@@ -148,6 +196,7 @@ function App() {
   const [showDataTable, setShowDataTable] = useState(false)
   const [showColumnMapping, setShowColumnMapping] = useState(false)
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({})
+  const [selectedAnalysisType, setSelectedAnalysisType] = useState<string>('sales')
 
   // 認証チェック（ページ読み込み時）
   useEffect(() => {
@@ -724,7 +773,8 @@ function App() {
       const body = {
         prompt,
         salesData,              // 画面のデータ配列
-        responseFormat: 'json'  // 明示（なくてもOKだが安全）
+        responseFormat: 'json', // 明示（なくてもOKだが安全）
+        analysisType: selectedAnalysisType // 選択された分析タイプを送信
       };
 
       const { data } = await axios.post(endpoint, body, {
@@ -892,7 +942,12 @@ ${dataTable}
         return;
       }
 
-      const result = await axios.post(API_ENDPOINT, requestData, {
+      const requestDataWithType = {
+        ...requestData,
+        analysisType: selectedAnalysisType
+      }
+
+      const result = await axios.post(API_ENDPOINT, requestDataWithType, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
@@ -983,7 +1038,7 @@ ${dataTable}
           color: '#333',
           margin: 0
         }}>
-          📊 Strategic AI Platform - 売上分析ツール
+          🎯 Strategic AI Platform - 統合分析コンサル
         </h1>
         
         <div style={{ textAlign: 'right' }}>
@@ -1008,6 +1063,116 @@ ${dataTable}
             ログアウト
           </button>
         </div>
+      </div>
+
+      {/* 分析タイプ選択セクション */}
+      <div style={{ marginBottom: '30px' }}>
+        <h2 style={{ color: '#333', marginBottom: '15px', fontSize: '1.2rem' }}>
+          🔍 分析タイプを選択
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+          {ANALYSIS_TYPES.map(type => {
+            const isAccessible = USER_ACCESS[user.id]?.includes(type.id) || false
+            const isSelected = selectedAnalysisType === type.id
+            
+            return (
+              <div
+                key={type.id}
+                onClick={() => isAccessible && setSelectedAnalysisType(type.id)}
+                style={{
+                  padding: '20px',
+                  border: `2px solid ${isSelected ? '#007bff' : '#e0e0e0'}`,
+                  borderRadius: '8px',
+                  backgroundColor: isSelected ? '#f8f9ff' : (isAccessible ? 'white' : '#f5f5f5'),
+                  cursor: isAccessible ? 'pointer' : 'not-allowed',
+                  opacity: isAccessible ? 1 : 0.6,
+                  transition: 'all 0.2s ease',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '1.5rem', marginRight: '10px' }}>{type.icon}</span>
+                  <h3 style={{ margin: 0, color: isAccessible ? '#333' : '#999', fontSize: '1.1rem' }}>
+                    {type.name}
+                  </h3>
+                  {!isAccessible && (
+                    <span style={{ 
+                      marginLeft: 'auto', 
+                      fontSize: '1.2rem', 
+                      color: '#999' 
+                    }}>🔒</span>
+                  )}
+                </div>
+                <p style={{ 
+                  margin: 0, 
+                  color: isAccessible ? '#666' : '#999', 
+                  fontSize: '0.9rem',
+                  lineHeight: '1.4'
+                }}>
+                  {type.description}
+                </p>
+                {isSelected && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.8rem'
+                  }}>
+                    ✓
+                  </div>
+                )}
+                {!isAccessible && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '10px',
+                    right: '10px',
+                    backgroundColor: '#ffc107',
+                    color: '#333',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold'
+                  }}>
+                    {type.tier === 'premium' ? 'プレミアム' : type.tier === 'enterprise' ? 'エンタープライズ' : 'ベーシック'}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        
+        {/* 選択された分析タイプの説明 */}
+        {selectedAnalysisType && (
+          <div style={{
+            marginTop: '20px',
+            padding: '15px',
+            backgroundColor: '#e3f2fd',
+            borderRadius: '8px',
+            border: '1px solid #1976d2'
+          }}>
+            {(() => {
+              const selectedType = ANALYSIS_TYPES.find(t => t.id === selectedAnalysisType)
+              return selectedType ? (
+                <div>
+                  <strong style={{ color: '#1976d2' }}>
+                    {selectedType.icon} {selectedType.name}が選択されています
+                  </strong>
+                  <p style={{ margin: '5px 0 0 0', color: '#333', fontSize: '0.9rem' }}>
+                    {selectedType.description}
+                  </p>
+                </div>
+              ) : null
+            })()}
+          </div>
+        )}
       </div>
 
       {/* ファイルアップロードセクション（ドラッグ&ドロップ対応） */}
