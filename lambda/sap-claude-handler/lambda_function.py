@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 MODEL_ID       = os.environ.get("BEDROCK_MODEL_ID", "us.deepseek.r1-v1:0")
 REGION         = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
 DEFAULT_FORMAT = (os.environ.get("DEFAULT_FORMAT", "json") or "json").lower()  # 'json'|'markdown'|'text'
-MAX_TOKENS     = int(os.environ.get("MAX_TOKENS", "2000"))
+MAX_TOKENS     = int(os.environ.get("MAX_TOKENS", "2200"))
 TEMPERATURE    = float(os.environ.get("TEMPERATURE", "0.15"))
 
 # ====== LOG ======
@@ -143,10 +143,10 @@ def _build_prompt_json(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> s
     return f"""あなたは売上データのアナリストです。以下の「統計要約」「サンプル行（最大50）」のみを根拠に分析し、JSONのみを返してください。
 
 [制約]
+- 出力は必ず日本語（overview/findings/kpis/trend 含む全て）。英語混在禁止。
 - 外部知識・想像は禁止（与えられた情報のみ）
 - 箇条書きは最大3点
 - 出力はJSONのみ（自然文禁止）
-- 出力は必ず日本語（overview/findings/kpis/trend 含めてすべて）
 - 期待スキーマ: {json.dumps(schema_hint, ensure_ascii=False)}
 
 [統計要約]
@@ -161,7 +161,7 @@ def _build_prompt_markdown(stats: Dict[str, Any], sample: List[Dict[str, Any]]) 
 
 # 概要
 - 与えられた情報のみを根拠（外部知識は禁止）
-- 出力は必ず日本語（英語混在禁止）
+- 出力は必ず日本語（英語混在禁止）。表と箇条書きを用いる。
 - 箇条書き中心で最大10行
 
 # 統計要約
@@ -174,7 +174,7 @@ def _build_prompt_markdown(stats: Dict[str, Any], sample: List[Dict[str, Any]]) 
 def _build_prompt_text(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> str:
     return f"""あなたは売上データのアナリストです。以下の情報のみを根拠に、日本語で3行以内の要約を出してください。
 
-- 出力は必ず日本語（英語混在禁止）
+- 出力は必ず日本語（英語混在禁止）。
 
 [統計要約]
 {json.dumps(stats, ensure_ascii=False)}
@@ -198,7 +198,7 @@ def _parse_csv_simple(csv_text: str) -> List[Dict[str, Any]]:
 
 def _bedrock_converse(model_id: str, region: str, prompt: str) -> str:
     client = boto3.client("bedrock-runtime", region_name=region)
-    system_ja = [{"text": "以後のすべての回答は必ず日本語。英語・ローマ字の混在は禁止。"}]
+    system_ja = [{"text": "以後の全回答は必ず日本語。英語・ローマ字の混在は禁止。数値は半角、通貨は『円』表記。"}]
     resp = client.converse(
         modelId=model_id,
         system=system_ja,
@@ -207,8 +207,10 @@ def _bedrock_converse(model_id: str, region: str, prompt: str) -> str:
     )
     msg = resp.get("output", {}).get("message", {})
     parts = msg.get("content", [])
-    # textのみ抽出。reasoningContentは無視。
-    txts = [p.get("text") for p in parts if "text" in p]
+    txts = []
+    for p in parts:
+        if "text" in p:  # DeepSeekのreasoningContentは無視
+            txts.append(p["text"])
     return "\n".join([t for t in txts if t]).strip()
 
 # ====== Handler ======
@@ -312,6 +314,29 @@ def lambda_handler(event, context):
         logger.exception("Bedrock error")
         summary_ai = f"(Bedrock error: {str(e)})"
 
+    # presentation_md for enhanced readability
+    def _fmt_yen(n):
+        try: return f"{int(n):,} 円"
+        except: return str(n)
+
+    presentation_md = "\n".join([
+        "# 売上サマリー",
+        f"- データ件数: {total}",
+        f"- 総売上: {_fmt_yen(stats.get('total_sales',0))}",
+        f"- 平均売上/行: {_fmt_yen(stats.get('avg_row_sales',0))}",
+        "",
+        "## KPI",
+        "| 指標 | 値 |",
+        "|---|---:|",
+        f"| 総売上 | {_fmt_yen(stats.get('total_sales',0))} |",
+        f"| 平均売上/行 | {_fmt_yen(stats.get('avg_row_sales',0))} |",
+        "",
+        "## トレンド（上位5件）",
+        "| 日付 | 売上 |",
+        "|---|---:|",
+        *[f"| {t.get('date','-')} | {_fmt_yen(t.get('sales',0))} |" for t in (stats.get('timeseries',[])[:5])],
+    ])
+
     # Response
     body = {
         "response": {
@@ -324,7 +349,8 @@ def lambda_handler(event, context):
                 "columns": columns,
                 "kpis": kpis,
                 "trend": trend
-            }
+            },
+            "presentation_md": presentation_md
         },
         "format": fmt,
         "message": "OK",
