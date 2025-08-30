@@ -3,7 +3,8 @@
     "allow": [
       "Bash(mv:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)"
     ],
     "deny": [],
     "ask": []
