@@ -120,7 +120,7 @@ def _compute_stats(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "timeseries": trend
     }
 
-def _build_prompt_json(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> str:
+def _build_prompt_json(stats: Dict[str, Any], sample: List[Dict[str, Any]], data_type: str = "sales_data") -> str:
     schema_hint = {
         "type": "object",
         "properties": {
@@ -140,16 +140,24 @@ def _build_prompt_json(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> s
         },
         "required": ["overview", "findings", "kpis"]
     }
-    return f"""あなたは会社の売上データを分析する、親しみやすいビジネスアドバイザーです。以下の売上データを見て、経営陣や営業チームに分かりやすく説明してください。
+    # データタイプ別の分析指示
+    analysis_instructions = _get_analysis_instructions(data_type)
+    
+    return f"""あなたは企業の財務データを分析する経験豊富な経営コンサルタントです。以下のデータを見て、経営陣に分かりやすく説明してください。
 
-【お願い】
+【データ種別】: {_get_data_type_name(data_type)}
+
+【分析指示】
+{analysis_instructions}
+
+【出力形式】
 - 自然な日本語で、まるで同僚に説明するように書いてください
-- 専門用語や難しい言葉は避けて、誰でも理解できる表現を使ってください
+- 専門用語は必要最小限に留め、誰でも理解できる表現を使ってください
 - 数字は「○○万円」「○○千円」など、日本人が普段使う表現で書いてください
 - 結果は以下のような形で整理してください：
   - 「全体の状況」: データの概要を2-3行で
   - 「気づいたこと」: 重要なポイントを3つまで
-  - 「数字のまとめ」: 主要な売上指標
+  - 「数字のまとめ」: 主要な指標
 
 ※与えられたデータのみを使って分析してください（推測は避けてください）
 ※以下の形式でJSONとして出力してください: {json.dumps(schema_hint, ensure_ascii=False)}
@@ -161,7 +169,7 @@ def _build_prompt_json(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> s
 {json.dumps(sample, ensure_ascii=False)}
 """
 
-def _build_prompt_markdown(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> str:
+def _build_prompt_markdown(stats: Dict[str, Any], sample: List[Dict[str, Any]], data_type: str = "sales_data") -> str:
     return f"""あなたは会社の売上データを分析するビジネスアドバイザーです。以下の売上データを見て、社長や部長が読むレポートを、完全に日本語と数字だけで作成してください。
 
 【重要】
@@ -178,7 +186,7 @@ def _build_prompt_markdown(stats: Dict[str, Any], sample: List[Dict[str, Any]]) 
 {json.dumps(sample, ensure_ascii=False)}
 """
 
-def _build_prompt_text(stats: Dict[str, Any], sample: List[Dict[str, Any]]) -> str:
+def _build_prompt_text(stats: Dict[str, Any], sample: List[Dict[str, Any]], data_type: str = "sales_data") -> str:
     return f"""あなたは会社の売上データを分析するビジネスアドバイザーです。以下の売上データを見て、上司に口頭で報告するように、完全に日本語だけで3行以内にまとめてください。
 
 【絶対守ること】
@@ -207,9 +215,100 @@ def _parse_csv_simple(csv_text: str) -> List[Dict[str, Any]]:
         rows.append(row)
     return rows
 
+def _identify_data_type(columns: List[str], sample_data: List[Dict[str, Any]]) -> str:
+    """データの列名とサンプルから財務データの種類を自動判別"""
+    if not columns:
+        return "unknown"
+    
+    # 列名を小文字に変換して判別しやすくする
+    col_lower = [col.lower() for col in columns]
+    col_str = " ".join(col_lower)
+    
+    # PL表（損益計算書）のキーワード
+    pl_keywords = ["売上高", "売上", "revenue", "sales", "売上原価", "cost", "gross", "販管費", "operating", "営業利益", "profit", "当期純利益", "net", "経常利益", "ordinary"]
+    if any(keyword in col_str for keyword in pl_keywords):
+        return "pl_statement"
+    
+    # 貸借対照表のキーワード
+    bs_keywords = ["資産", "asset", "負債", "liability", "純資産", "equity", "流動", "固定", "current", "non-current", "capital"]
+    if any(keyword in col_str for keyword in bs_keywords):
+        return "balance_sheet"
+    
+    # キャッシュフロー計算書のキーワード
+    cf_keywords = ["キャッシュ", "cash", "flow", "営業cf", "投資cf", "財務cf", "operating", "investing", "financing"]
+    if any(keyword in col_str for keyword in cf_keywords):
+        return "cashflow_statement"
+    
+    # 売上データのキーワード
+    sales_keywords = ["日付", "date", "商品", "product", "金額", "amount", "顧客", "customer", "数量", "quantity"]
+    if any(keyword in col_str for keyword in sales_keywords):
+        return "sales_data"
+    
+    # 在庫データのキーワード
+    inventory_keywords = ["在庫", "inventory", "stock", "仕入", "purchase", "単価", "unit"]
+    if any(keyword in col_str for keyword in inventory_keywords):
+        return "inventory_data"
+    
+    # 既定値：汎用財務データ
+    return "financial_data"
+
+def _get_data_type_name(data_type: str) -> str:
+    """データタイプの日本語名を返す"""
+    type_names = {
+        "pl_statement": "損益計算書（PL表）",
+        "balance_sheet": "貸借対照表（BS）",
+        "cashflow_statement": "キャッシュフロー計算書",
+        "sales_data": "売上データ",
+        "inventory_data": "在庫データ",
+        "financial_data": "財務データ",
+        "unknown": "不明なデータ"
+    }
+    return type_names.get(data_type, "財務データ")
+
+def _get_analysis_instructions(data_type: str) -> str:
+    """データタイプ別の分析指示を返す"""
+    instructions = {
+        "pl_statement": """
+- 売上高、売上原価、粗利率を確認してください
+- 販管費の内訳と売上高に占める割合を分析してください
+- 営業利益、経常利益、当期純利益の推移を確認してください
+- 収益性の健全性と改善点を指摘してください""",
+        
+        "balance_sheet": """
+- 総資産、流動資産、固定資産の構成を確認してください
+- 負債と純資産のバランスを分析してください
+- 流動比率、自己資本比率などの安全性指標を計算してください
+- 財務の健全性と資金繰りについて評価してください""",
+        
+        "cashflow_statement": """
+- 営業キャッシュフロー、投資キャッシュフロー、財務キャッシュフローを確認してください
+- 現金創出能力と資金の使い道を分析してください
+- キャッシュフローの健全性と持続可能性を評価してください
+- 資金繰りの改善点があれば指摘してください""",
+        
+        "sales_data": """
+- 売上の合計、平均、トレンドを確認してください
+- 商品別・時期別の売上構成を分析してください
+- 売上の成長性と季節性があれば指摘してください
+- 営業戦略の改善点があれば提案してください""",
+        
+        "inventory_data": """
+- 在庫の総額、商品別構成を確認してください
+- 在庫回転率や滞留在庫があれば指摘してください
+- 適正在庫レベルと過剰在庫のリスクを評価してください
+- 在庫管理の改善点があれば提案してください""",
+        
+        "financial_data": """
+- データの主要な項目と数値を確認してください
+- 重要な指標や比率があれば計算してください
+- 傾向やパターンがあれば分析してください
+- ビジネス上の意味と改善点があれば指摘してください"""
+    }
+    return instructions.get(data_type, instructions["financial_data"])
+
 def _bedrock_converse(model_id: str, region: str, prompt: str) -> str:
     client = boto3.client("bedrock-runtime", region_name=region)
-    system_ja = [{"text": "あなたは売上データの分析を行う、親しみやすいビジネスアドバイザーです。回答は必ず日本語で、一般のサラリーマンにも分かりやすく説明してください。専門用語や技術用語は使わず、自然で読みやすい文章で回答してください。数値は千円単位で区切り、円マークを付けて表示してください。"}]
+    system_ja = [{"text": "あなたは企業の財務データを分析する経験豊富な経営コンサルタントです。売上データ、損益計算書（PL表）、貸借対照表、キャッシュフロー計算書など、あらゆる数値データを分析できます。まず提供されたデータの種類を自動判別し、適切な分析を行ってください。回答は必ず日本語で、一般のビジネスパーソンにも分かりやすく説明してください。専門用語は必要最小限に留め、数値は千円単位で区切り、円マークを付けて表示してください。"}]
     resp = client.converse(
         modelId=model_id,
         system=system_ja,
@@ -280,16 +379,19 @@ def lambda_handler(event, context):
     columns = list(sales[0].keys()) if sales else []
     total = len(sales)
 
+    # データタイプ自動判別
+    data_type = _identify_data_type(columns, sales[:5] if sales else [])
+    
     stats = _compute_stats(sales)
     sample = sales[:50] if sales else []
 
-    # Build prompt
+    # データタイプ別プロンプト構築
     if fmt == "markdown":
-        prompt = _build_prompt_markdown(stats, sample)
+        prompt = _build_prompt_markdown(stats, sample, data_type)
     elif fmt == "text":
-        prompt = _build_prompt_text(stats, sample)
+        prompt = _build_prompt_text(stats, sample, data_type)
     else:
-        prompt = _build_prompt_json(stats, sample)
+        prompt = _build_prompt_json(stats, sample, data_type)
 
     # LLM call
     summary_ai = ""
