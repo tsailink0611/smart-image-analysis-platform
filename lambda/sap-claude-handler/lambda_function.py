@@ -216,50 +216,97 @@ def _parse_csv_simple(csv_text: str) -> List[Dict[str, Any]]:
     return rows
 
 def _identify_data_type(columns: List[str], sample_data: List[Dict[str, Any]]) -> str:
-    """データの列名とサンプルから財務データの種類を自動判別"""
+    """データの列名とサンプルから財務データの種類を自動判別（4つの分析タイプに特化）"""
     if not columns:
-        return "unknown"
+        return "financial_data"
     
     # 列名を小文字に変換して判別しやすくする
     col_lower = [col.lower() for col in columns]
-    col_str = " ".join(col_lower)
+    col_str = " ".join(col_lower) + " " + " ".join(columns)
     
-    # PL表（損益計算書）のキーワード
-    pl_keywords = ["売上高", "売上", "revenue", "sales", "売上原価", "cost", "gross", "販管費", "operating", "営業利益", "profit", "当期純利益", "net", "経常利益", "ordinary"]
-    if any(keyword in col_str for keyword in pl_keywords):
-        return "pl_statement"
+    # スコアベースの判定システム
+    scores = {
+        "hr_data": 0,
+        "marketing_data": 0,
+        "sales_data": 0,
+        "financial_data": 0
+    }
     
-    # 貸借対照表のキーワード
-    bs_keywords = ["資産", "asset", "負債", "liability", "純資産", "equity", "流動", "固定", "current", "non-current", "capital"]
-    if any(keyword in col_str for keyword in bs_keywords):
-        return "balance_sheet"
+    # 人事データの強いキーワード（高スコア）
+    hr_strong_keywords = ["社員id", "employee", "氏名", "部署", "給与", "salary", "賞与", "年収", "評価", "performance", "残業", "overtime", "有給", "離職", "昇進", "スキル", "チーム貢献", "人事"]
+    for keyword in hr_strong_keywords:
+        if keyword in col_str:
+            scores["hr_data"] += 3
     
-    # キャッシュフロー計算書のキーワード
-    cf_keywords = ["キャッシュ", "cash", "flow", "営業cf", "投資cf", "財務cf", "operating", "investing", "financing"]
-    if any(keyword in col_str for keyword in cf_keywords):
-        return "cashflow_statement"
+    # 人事データの中程度キーワード
+    hr_medium_keywords = ["勤怠", "attendance", "研修", "training", "目標達成", "職位", "入社", "年齢"]
+    for keyword in hr_medium_keywords:
+        if keyword in col_str:
+            scores["hr_data"] += 2
     
-    # 売上データのキーワード
-    sales_keywords = ["日付", "date", "商品", "product", "金額", "amount", "顧客", "customer", "数量", "quantity"]
-    if any(keyword in col_str for keyword in sales_keywords):
-        return "sales_data"
+    # マーケティングデータの強いキーワード
+    marketing_strong_keywords = ["キャンペーン", "campaign", "roi", "インプレッション", "impression", "クリック", "click", "cv数", "conversion", "顧客獲得", "cac", "roas", "広告", "媒体", "ターゲット"]
+    for keyword in marketing_strong_keywords:
+        if keyword in col_str:
+            scores["marketing_data"] += 3
     
-    # 在庫データのキーワード
-    inventory_keywords = ["在庫", "inventory", "stock", "仕入", "purchase", "単価", "unit"]
-    if any(keyword in col_str for keyword in inventory_keywords):
-        return "inventory_data"
+    # マーケティングデータの中程度キーワード
+    marketing_medium_keywords = ["予算", "budget", "支出", "cost", "facebook", "google", "youtube", "instagram", "tiktok", "twitter"]
+    for keyword in marketing_medium_keywords:
+        if keyword in col_str:
+            scores["marketing_data"] += 1
     
-    # 人事データのキーワード
-    hr_keywords = ["社員", "employee", "給与", "salary", "賃金", "wage", "勤怠", "attendance", "残業", "overtime", "部署", "department", "評価", "performance", "人事", "hr", "採用", "recruitment", "離職", "turnover"]
-    if any(keyword in col_str for keyword in hr_keywords):
-        return "hr_data"
+    # 売上データの強いキーワード
+    sales_strong_keywords = ["売上", "sales", "revenue", "商品", "product", "顧客", "customer", "金額", "amount", "単価", "price", "数量", "quantity"]
+    for keyword in sales_strong_keywords:
+        if keyword in col_str:
+            scores["sales_data"] += 3
     
-    # マーケティングデータのキーワード
-    marketing_keywords = ["広告", "ad", "campaign", "マーケティング", "marketing", "cpc", "ctr", "conversion", "roi", "roas", "リード", "lead", "獲得", "acquisition", "顧客", "customer", "コスト", "cost", "チャネル", "channel"]
-    if any(keyword in col_str for keyword in marketing_keywords):
-        return "marketing_data"
+    # 売上データの中程度キーワード
+    sales_medium_keywords = ["日付", "date", "店舗", "store", "地域", "region", "カテゴリ", "category"]
+    for keyword in sales_medium_keywords:
+        if keyword in col_str:
+            scores["sales_data"] += 1
     
-    # 既定値：汎用財務データ
+    # 統合戦略データ（財務データ）の強いキーワード
+    financial_strong_keywords = ["売上高", "revenue", "利益", "profit", "資産", "asset", "負債", "liability", "キャッシュ", "cash", "損益", "pl", "貸借", "bs"]
+    for keyword in financial_strong_keywords:
+        if keyword in col_str:
+            scores["financial_data"] += 3
+    
+    # データの内容からも判定（サンプルデータが利用可能な場合）
+    if sample_data and len(sample_data) > 0:
+        sample = sample_data[0]
+        
+        # 人事データの特徴的な値パターン
+        for key, value in sample.items():
+            str_value = str(value).lower()
+            
+            # 人事系の値パターン
+            if any(dept in str_value for dept in ["営業部", "it部", "人事部", "財務部", "マーケティング部"]):
+                scores["hr_data"] += 5
+            if any(pos in str_value for pos in ["主任", "係長", "一般", "部長", "課長"]):
+                scores["hr_data"] += 3
+            if any(risk in str_value for risk in ["低", "中", "高"]) and ("リスク" in key or "risk" in key.lower()):
+                scores["hr_data"] += 4
+                
+            # マーケティング系の値パターン
+            if any(media in str_value for media in ["google広告", "facebook広告", "youtube広告", "instagram広告", "line広告", "tiktok広告"]):
+                scores["marketing_data"] += 5
+            if "%" in str_value and any(metric in key.lower() for metric in ["roi", "達成率", "満足度"]):
+                scores["marketing_data"] += 2
+                
+            # 売上系の値パターン（数値が大きく、商品名がある場合）
+            if "商品" in key or "product" in key.lower():
+                scores["sales_data"] += 3
+            if key.lower() in ["店舗", "store"] and str_value:
+                scores["sales_data"] += 4
+    
+    # 最高スコアのタイプを返す
+    if max(scores.values()) > 0:
+        return max(scores, key=scores.get)
+    
+    # デフォルト
     return "financial_data"
 
 def _get_data_type_name(data_type: str) -> str:
@@ -278,28 +325,32 @@ def _get_data_type_name(data_type: str) -> str:
     return type_names.get(data_type, "財務データ")
 
 def validate_analysis_compatibility(detected_data_type: str, requested_analysis_type: str) -> Tuple[bool, str]:
-    """データタイプと分析タイプの適合性をチェック"""
-    # 適合性マトリックス
+    """データタイプと分析タイプの適合性をチェック（使いやすさ重視）"""
+    # 適合性マトリックス - より柔軟に
     compatibility_matrix = {
         'sales': {
-            'allowed': ['sales_data'],
+            'primary': ['sales_data'],  # 主要対応
+            'secondary': ['financial_data'],  # 副次対応（警告なしで通す）
             'name': '売上分析',
-            'required_data': '売上データ（日付・商品・金額など）'
+            'description': '売上・商品・顧客データの分析'
         },
         'hr': {
-            'allowed': ['hr_data'],
-            'name': '人事分析',
-            'required_data': '人事データ（給与・勤怠・評価など）'
+            'primary': ['hr_data'],
+            'secondary': [],  # 人事は厳密に
+            'name': '人事分析', 
+            'description': '従業員パフォーマンス・給与・評価データの分析'
         },
         'marketing': {
-            'allowed': ['marketing_data'],
-            'name': 'マーケティングROI分析',
-            'required_data': 'マーケティングデータ（広告費・コンバージョン・ROASなど）'
+            'primary': ['marketing_data'],
+            'secondary': ['financial_data'],  # 予算データなども可
+            'name': 'マーケティング分析',
+            'description': 'キャンペーン・ROI・顧客獲得データの分析'
         },
         'strategic': {
-            'allowed': ['pl_statement', 'balance_sheet', 'cashflow_statement', 'financial_data', 'sales_data'],
+            'primary': ['financial_data', 'sales_data'],
+            'secondary': ['hr_data', 'marketing_data'],  # 統合戦略は何でも可
             'name': '統合戦略分析',
-            'required_data': '財務データ（PL表・BS・CF・売上データなど）'
+            'description': '総合的なビジネスデータの戦略分析'
         }
     }
     
@@ -309,32 +360,35 @@ def validate_analysis_compatibility(detected_data_type: str, requested_analysis_
     
     config = compatibility_matrix[requested_analysis_type]
     
-    # 適合性チェック
-    if detected_data_type not in config['allowed']:
-        # 適切なボタンを提案
-        correct_button = None
+    # 主要タイプまたは副次タイプに適合するかチェック
+    all_allowed = config['primary'] + config['secondary']
+    
+    if detected_data_type in all_allowed:
+        return True, ""  # 適合している
+    
+    # 不適合の場合のみエラー
+    if detected_data_type not in all_allowed:
+        # 最適なボタンを提案
+        best_match = None
         for btn_type, btn_config in compatibility_matrix.items():
-            if detected_data_type in btn_config['allowed']:
-                correct_button = btn_config['name']
+            if detected_data_type in (btn_config['primary'] + btn_config['secondary']):
+                best_match = btn_config['name']
                 break
         
-        # エラーメッセージ構築
-        error_msg = f"""
-❌ データタイプ不一致
+        error_msg = f"""⚠️ データタイプの不一致が検出されました
 
-選択された分析: {config['name']}
-必要なデータ: {config['required_data']}
 アップロードされたデータ: {_get_data_type_name(detected_data_type)}
+選択された分析: {config['name']}
 
-申し訳ございませんが、{config['name']}には適切なデータ形式が必要です。
-"""
+このデータは{config['name']}には最適化されていません。"""
         
-        if correct_button:
-            error_msg += f"\n✅ このデータには「{correct_button}」ボタンをご利用ください。"
+        if best_match:
+            error_msg += f"\n\n💡 このデータには「{best_match}」がおすすめです。\n\nただし、そのまま分析を続行することも可能です。"
+            # 警告だけで続行を許可
+            return True, ""
         else:
-            error_msg += "\n適切なデータをアップロードし直してください。"
-        
-        return False, error_msg
+            error_msg += f"\n\n「統合戦略分析」ボタンをお試しください。"
+            return True, ""
     
     return True, ""
 
