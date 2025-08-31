@@ -185,8 +185,8 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
               transition: 'background-color 0.2s',
               boxShadow: '0 2px 4px rgba(0, 123, 255, 0.3)'
             }}
-            onMouseOver={(e) => !loading && (e.target.style.backgroundColor = '#0056b3')}
-            onMouseOut={(e) => !loading && (e.target.style.backgroundColor = '#007bff')}
+            onMouseOver={(e) => !loading && ((e.target as HTMLButtonElement).style.backgroundColor = '#0056b3')}
+            onMouseOut={(e) => !loading && ((e.target as HTMLButtonElement).style.backgroundColor = '#007bff')}
           >
             {loading ? '🔄 ログイン中...' : '🚀 ログイン'}
           </button>
