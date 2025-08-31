@@ -163,18 +163,6 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
           </button>
         </form>
 
-        <div style={{
-          marginTop: '2rem',
-          padding: '1rem',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '4px',
-          fontSize: '0.9rem'
-        }}>
-          <h4 style={{ margin: '0 0 0.5rem 0' }}>💡 デモアカウント:</h4>
-          <div><strong>デモ用:</strong> demo / demo123 (10回まで)</div>
-          <div><strong>お客様用:</strong> client_abc / abc2024 (50回まで)</div>
-          <div><strong>管理者用:</strong> admin / admin999 (無制限)</div>
-        </div>
       </div>
     </div>
   )
