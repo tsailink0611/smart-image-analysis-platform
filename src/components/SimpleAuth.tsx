@@ -78,22 +78,25 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
       alignItems: 'center',
       minHeight: '100vh',
       backgroundColor: '#f5f5f5',
-      padding: '20px'
+      padding: '20px',
+      width: '100%',
+      boxSizing: 'border-box'
     }}>
       <div style={{
         backgroundColor: 'white',
-        padding: '3rem',
+        padding: 'clamp(1.5rem, 4vw, 3rem)',
         borderRadius: '12px',
         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
         width: '100%',
         maxWidth: '500px',
-        minWidth: '450px'
+        minWidth: 'min(320px, 100%)',
+        margin: '0 auto'
       }}>
         <h2 style={{ 
           textAlign: 'center', 
-          marginBottom: '2.5rem', 
+          marginBottom: 'clamp(1.5rem, 3vw, 2.5rem)', 
           color: '#333',
-          fontSize: '1.8rem',
+          fontSize: 'clamp(1.4rem, 3vw, 1.8rem)',
           fontWeight: '600'
         }}>
           🎯 Strategic AI Platform
@@ -101,8 +104,8 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
         <p style={{
           textAlign: 'center',
           color: '#666',
-          marginBottom: '2rem',
-          fontSize: '1.1rem'
+          marginBottom: 'clamp(1rem, 2vw, 2rem)',
+          fontSize: 'clamp(1rem, 2vw, 1.1rem)'
         }}>
           統合分析コンサルティングシステム
         </p>
@@ -120,12 +123,13 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
               required
               style={{
                 width: '100%',
-                padding: '1rem',
+                padding: 'clamp(0.75rem, 2vw, 1rem)',
                 border: '2px solid #e0e0e0',
                 borderRadius: '8px',
-                fontSize: '1.1rem',
+                fontSize: 'clamp(1rem, 2vw, 1.1rem)',
                 transition: 'border-color 0.2s',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => e.target.style.borderColor = '#007bff'}
               onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
@@ -144,12 +148,13 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
               required
               style={{
                 width: '100%',
-                padding: '1rem',
+                padding: 'clamp(0.75rem, 2vw, 1rem)',
                 border: '2px solid #e0e0e0',
                 borderRadius: '8px',
-                fontSize: '1.1rem',
+                fontSize: 'clamp(1rem, 2vw, 1.1rem)',
                 transition: 'border-color 0.2s',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => e.target.style.borderColor = '#007bff'}
               onBlur={(e) => e.target.style.borderColor = '#e0e0e0'}
@@ -174,16 +179,17 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
             disabled={loading}
             style={{
               width: '100%',
-              padding: '1.2rem',
+              padding: 'clamp(1rem, 2.5vw, 1.2rem)',
               backgroundColor: loading ? '#ccc' : '#007bff',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
-              fontSize: '1.2rem',
+              fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
               fontWeight: '600',
               cursor: loading ? 'default' : 'pointer',
               transition: 'background-color 0.2s',
-              boxShadow: '0 2px 4px rgba(0, 123, 255, 0.3)'
+              boxShadow: '0 2px 4px rgba(0, 123, 255, 0.3)',
+              boxSizing: 'border-box'
             }}
             onMouseOver={(e) => !loading && ((e.target as HTMLButtonElement).style.backgroundColor = '#0056b3')}
             onMouseOut={(e) => !loading && ((e.target as HTMLButtonElement).style.backgroundColor = '#007bff')}
