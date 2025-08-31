@@ -76,11 +76,14 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      minHeight: '100vh',
+      height: '100vh',
+      width: '100vw',
       backgroundColor: '#f5f5f5',
       padding: '20px',
-      width: '100%',
-      boxSizing: 'border-box'
+      boxSizing: 'border-box',
+      position: 'fixed',
+      top: 0,
+      left: 0
     }}>
       <div style={{
         backgroundColor: 'white',
@@ -89,8 +92,7 @@ export default function SimpleAuth({ onLogin }: SimpleAuthProps) {
         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
         width: '100%',
         maxWidth: '500px',
-        minWidth: 'min(320px, 100%)',
-        margin: '0 auto'
+        minWidth: 'min(300px, 90vw)'
       }}>
         <h2 style={{ 
           textAlign: 'center', 
