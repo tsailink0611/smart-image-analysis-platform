@@ -6,15 +6,13 @@ interface User {
   company: string
   usageCount: number
   usageLimit: number
-  plan: 'basic' | 'standard' | 'premium' | 'enterprise'
-  allowedAnalysisTypes: string[]
 }
 
 interface SimpleAuthProps {
   onLogin: (user: User) => void
 }
 
-// デモ用アカウント（料金プラン別権限設定）
+// デモ用アカウント（本番では環境変数やDBから）
 const DEMO_ACCOUNTS: Record<string, { password: string; user: User }> = {
   "demo": {
     password: "demo123",
@@ -23,9 +21,7 @@ const DEMO_ACCOUNTS: Record<string, { password: string; user: User }> = {
       name: "デモ ユーザー",
       company: "デモ会社",
       usageCount: 0,
-      usageLimit: 10,
-      plan: "basic",
-      allowedAnalysisTypes: ["sales"] // 3万円プラン：売上分析のみ
+      usageLimit: 10
     }
   },
   "client_abc": {
@@ -35,9 +31,7 @@ const DEMO_ACCOUNTS: Record<string, { password: string; user: User }> = {
       name: "田中 太郎",
       company: "ABC商事株式会社",
       usageCount: 0,
-      usageLimit: 50,
-      plan: "premium",
-      allowedAnalysisTypes: ["sales", "hr", "marketing"] // 8万円プラン：3機能
+      usageLimit: 50
     }
   },
   "admin": {
@@ -47,33 +41,7 @@ const DEMO_ACCOUNTS: Record<string, { password: string; user: User }> = {
       name: "管理者",
       company: "システム管理",
       usageCount: 0,
-      usageLimit: 999,
-      plan: "enterprise",
-      allowedAnalysisTypes: ["sales", "hr", "marketing", "strategic"] // 10万円プラン：全機能
-    }
-  },
-  "basic_user": {
-    password: "basic2024",
-    user: {
-      id: "basic_user",
-      name: "ベーシック ユーザー", 
-      company: "スタートアップ企業",
-      usageCount: 0,
-      usageLimit: 20,
-      plan: "basic",
-      allowedAnalysisTypes: ["sales"] // 3万円プラン：1機能のみ
-    }
-  },
-  "standard_user": {
-    password: "standard2024",
-    user: {
-      id: "standard_user",
-      name: "スタンダード ユーザー",
-      company: "中小企業A",
-      usageCount: 0,
-      usageLimit: 100,
-      plan: "standard", 
-      allowedAnalysisTypes: ["sales", "hr"] // 5万円プラン：2機能
+      usageLimit: 999
     }
   }
 }

@@ -21,8 +21,6 @@ interface User {
   company: string
   usageCount: number
   usageLimit: number
-  plan: 'basic' | 'standard' | 'premium' | 'enterprise'
-  allowedAnalysisTypes: string[]
 }
 
 // 分析タイプ定義
