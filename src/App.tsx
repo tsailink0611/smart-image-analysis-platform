@@ -60,15 +60,36 @@ const ANALYSIS_TYPES: AnalysisType[] = [
     description: 'PL・BS・CF総合コンサルティング',
     icon: '🎯',
     tier: 'enterprise'
+  },
+  {
+    id: 'document',
+    name: '書類画像分析',
+    description: '領収書・請求書・レポート・名刺の写真からAI分析',
+    icon: '📷',
+    tier: 'premium'
+  },
+  {
+    id: 'inventory',
+    name: '在庫分析',
+    description: '在庫回転率・滞留在庫・調達最適化分析',
+    icon: '📦',
+    tier: 'basic'
+  },
+  {
+    id: 'customer',
+    name: '顧客分析',
+    description: 'LTV・チャーン率・セグメント・満足度分析',
+    icon: '🛒',
+    tier: 'premium'
   }
 ]
 
 // ユーザー権限マッピング
 const USER_ACCESS: Record<string, string[]> = {
-  'demo': ['sales'],
-  'client_abc': ['sales', 'hr'],
-  'admin': ['sales', 'hr', 'marketing', 'strategic'],
-  'dev': ['sales', 'hr', 'marketing', 'strategic']
+  'demo': ['sales', 'inventory'],
+  'client_abc': ['sales', 'hr', 'inventory', 'customer'],
+  'admin': ['sales', 'hr', 'marketing', 'strategic', 'document', 'inventory', 'customer'],
+  'dev': ['sales', 'hr', 'marketing', 'strategic', 'document', 'inventory', 'customer']
 }
 
 // 文字列化ヘルパー関数
@@ -318,20 +339,67 @@ function App() {
 
     console.log('🎯 選択されたカラム:', { dateCol, salesCol, productCol });
 
-    // 数値変換ヘルパー関数（改善版）
+    // 数値変換ヘルパー関数（企業データ対応強化版）
     const parseNumber = (value: any) => {
       if (value === null || value === undefined || value === '') return 0;
       
-      // 文字列に変換してクリーンアップ
-      let cleanValue = String(value)
-        .replace(/[,¥円\s$€£]/g, '') // 通貨記号を削除
-        .replace(/[^\d.-]/g, '') // 数字、小数点、マイナス以外を削除
+      let str = String(value).trim();
+      if (!str) return 0;
+      
+      // 全角数字を半角に変換
+      str = str.replace(/[０-９]/g, (char) => 
+        String.fromCharCode(char.charCodeAt(0) - 65248)
+      );
+      
+      // 単位付き数値の処理（千円、万円、億円など）
+      const unitPatterns = [
+        { pattern: /^([+-]?\d+(?:,\d{3})*(?:\.\d+)?)\s*億\s*円?/i, multiplier: 100000000 },
+        { pattern: /^([+-]?\d+(?:,\d{3})*(?:\.\d+)?)\s*万\s*円?/i, multiplier: 10000 },
+        { pattern: /^([+-]?\d+(?:,\d{3})*(?:\.\d+)?)\s*千\s*円?/i, multiplier: 1000 },
+        { pattern: /^([+-]?\d+(?:,\d{3})*(?:\.\d+)?)\s*円/i, multiplier: 1 },
+        { pattern: /^([+-]?\d+(?:,\d{3})*(?:\.\d+)?)\s*k/i, multiplier: 1000 },
+        { pattern: /^([+-]?\d+(?:,\d{3})*(?:\.\d+)?)\s*m/i, multiplier: 1000000 }
+      ];
+      
+      for (const { pattern, multiplier } of unitPatterns) {
+        const match = str.match(pattern);
+        if (match) {
+          const numStr = match[1].replace(/,/g, '');
+          const num = parseFloat(numStr);
+          const result = isNaN(num) ? 0 : num * multiplier;
+          console.log(`数値変換(単位付き): "${value}" -> ${result} (${match[1]} × ${multiplier})`);
+          return result;
+        }
+      }
+      
+      // 括弧付き負数の処理 (123) -> -123
+      if (/^\(\d+(?:,\d{3})*(?:\.\d+)?\)$/.test(str)) {
+        str = '-' + str.slice(1, -1);
+      }
+      
+      // 通貨記号・カンマ・空白の削除
+      let cleanValue = str
+        .replace(/[,¥円\s$€£￥]/g, '')
+        .replace(/[^\d.-]/g, '')
         .trim();
+      
+      // マイナス記号の正規化（全角ハイフン、em dash等）
+      cleanValue = cleanValue.replace(/[－–—]/g, '-');
+      
+      // 複数のマイナス記号を処理
+      const minusCount = (cleanValue.match(/-/g) || []).length;
+      if (minusCount > 1) {
+        cleanValue = minusCount % 2 === 0 
+          ? cleanValue.replace(/-/g, '')
+          : '-' + cleanValue.replace(/-/g, '');
+      }
       
       const num = parseFloat(cleanValue);
       const result = isNaN(num) ? 0 : num;
       
-      console.log(`数値変換: "${value}" -> "${cleanValue}" -> ${result}`);
+      if (String(value) !== String(result) && result !== 0) {
+        console.log(`数値変換: "${value}" -> "${cleanValue}" -> ${result}`);
+      }
       return result;
     };
 
@@ -487,6 +555,69 @@ function App() {
   };
 
   // ファイル処理の共通関数
+  // 画像ファイル処理関数
+  const processImageFile = async (file: File) => {
+    if (!file) return;
+
+    console.log('📷 画像ファイル処理開始:', file.name);
+
+    // 画像形式の確認
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    if (!['jpg', 'jpeg', 'png', 'pdf', 'webp'].includes(fileExtension || '')) {
+      setResponse(`❌ サポートされていない画像形式です。JPG、PNG、PDF、WebP形式のファイルをアップロードしてください。`);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setResponse('📷 画像を分析中...');
+
+      // Base64エンコード
+      const base64String = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // data:image/jpeg;base64, の部分を削除
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Lambda関数に画像データを送信
+      const payload = {
+        analysisType: selectedAnalysisType,
+        fileType: 'image',
+        imageData: base64String,
+        fileName: file.name,
+        mimeType: file.type
+      };
+
+      console.log('📷 画像分析リクエスト送信:', { fileName: file.name, size: file.size, type: file.type });
+
+      const response = await axios.post(API_ENDPOINT, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 60000 // 60秒タイムアウト（画像処理は時間がかかる）
+      });
+
+      const result = response.data;
+      console.log('📷 画像分析結果受信:', result);
+
+      if (result && result.response) {
+        setResponse(result.response.summary || '画像分析が完了しました。');
+        setIsFileUploaded(true);
+      } else {
+        setResponse('❌ 画像分析に失敗しました。もう一度お試しください。');
+      }
+    } catch (error: any) {
+      console.error('📷 画像分析エラー:', error);
+      setResponse(`❌ 画像分析エラー: ${error.message || '不明なエラー'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const processFile = (file: File) => {
     if (!file) return;
 
@@ -494,8 +625,19 @@ function App() {
 
     // ファイル形式の確認
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    // 画像分析が選択されている場合
+    if (selectedAnalysisType === 'document') {
+      processImageFile(file);
+      return;
+    }
+
+    // データファイルの処理
     if (!['csv', 'xlsx', 'xls'].includes(fileExtension || '')) {
-      setResponse(`❌ サポートされていないファイル形式です。CSV、Excel形式のファイルをアップロードしてください。`);
+      const supportedFormats = selectedAnalysisType === 'document' 
+        ? 'JPG、PNG、PDF、WebP形式'
+        : 'CSV、Excel形式';
+      setResponse(`❌ サポートされていないファイル形式です。${supportedFormats}のファイルをアップロードしてください。`);
       return;
     }
 

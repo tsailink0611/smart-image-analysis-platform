@@ -216,7 +216,7 @@ def _parse_csv_simple(csv_text: str) -> List[Dict[str, Any]]:
     return rows
 
 def _identify_data_type(columns: List[str], sample_data: List[Dict[str, Any]]) -> str:
-    """データの列名とサンプルから財務データの種類を自動判別（4つの分析タイプに特化）"""
+    """データの列名とサンプルから財務データの種類を自動判別（7つの分析タイプに特化）"""
     if not columns:
         return "financial_data"
     
@@ -229,7 +229,9 @@ def _identify_data_type(columns: List[str], sample_data: List[Dict[str, Any]]) -
         "hr_data": 0,
         "marketing_data": 0,
         "sales_data": 0,
-        "financial_data": 0
+        "financial_data": 0,
+        "inventory_data": 0,
+        "customer_data": 0
     }
     
     # 人事データの強いキーワード（高スコア）
@@ -274,6 +276,30 @@ def _identify_data_type(columns: List[str], sample_data: List[Dict[str, Any]]) -
         if keyword in col_str:
             scores["financial_data"] += 3
     
+    # 在庫分析データの強いキーワード
+    inventory_strong_keywords = ["在庫", "inventory", "stock", "在庫数", "保有数", "倉庫", "warehouse", "回転率", "turnover", "滞留", "入庫", "出庫", "調達", "procurement"]
+    for keyword in inventory_strong_keywords:
+        if keyword in col_str:
+            scores["inventory_data"] += 3
+    
+    # 在庫分析データの中程度キーワード
+    inventory_medium_keywords = ["商品コード", "sku", "ロット", "lot", "品番", "型番", "仕入", "supplier", "発注", "order", "納期", "delivery"]
+    for keyword in inventory_medium_keywords:
+        if keyword in col_str:
+            scores["inventory_data"] += 1
+    
+    # 顧客分析データの強いキーワード  
+    customer_strong_keywords = ["顧客", "customer", "会員", "member", "ユーザー", "user", "ltv", "lifetime", "churn", "離脱", "継続", "retention", "満足度", "satisfaction"]
+    for keyword in customer_strong_keywords:
+        if keyword in col_str:
+            scores["customer_data"] += 3
+    
+    # 顧客分析データの中程度キーワード
+    customer_medium_keywords = ["セグメント", "segment", "年齢", "age", "性別", "gender", "地域", "region", "購入履歴", "purchase", "アクセス", "access", "クリック", "click"]
+    for keyword in customer_medium_keywords:
+        if keyword in col_str:
+            scores["customer_data"] += 1
+    
     # データの内容からも判定（サンプルデータが利用可能な場合）
     if sample_data and len(sample_data) > 0:
         sample = sample_data[0]
@@ -301,6 +327,22 @@ def _identify_data_type(columns: List[str], sample_data: List[Dict[str, Any]]) -
                 scores["sales_data"] += 3
             if key.lower() in ["店舗", "store"] and str_value:
                 scores["sales_data"] += 4
+                
+            # 在庫系の値パターン
+            if any(unit in str_value for unit in ["個", "本", "kg", "箱", "セット", "台"]):
+                scores["inventory_data"] += 2
+            if "warehouse" in key.lower() or "倉庫" in key:
+                scores["inventory_data"] += 3
+            if any(status in str_value for status in ["入荷待ち", "出荷済み", "在庫切れ", "調達中"]):
+                scores["inventory_data"] += 4
+                
+            # 顧客系の値パターン  
+            if any(age in str_value for age in ["20代", "30代", "40代", "50代", "60代"]) or str_value.isdigit() and 18 <= int(str_value) <= 80:
+                scores["customer_data"] += 3
+            if any(gender in str_value for gender in ["男性", "女性", "male", "female", "男", "女"]):
+                scores["customer_data"] += 3
+            if "@" in str_value:  # メールアドレス
+                scores["customer_data"] += 4
     
     # 最高スコアのタイプを返す
     if max(scores.values()) > 0:
@@ -317,9 +359,11 @@ def _get_data_type_name(data_type: str) -> str:
         "cashflow_statement": "キャッシュフロー計算書",
         "sales_data": "売上データ",
         "inventory_data": "在庫データ",
+        "customer_data": "顧客データ",
         "hr_data": "人事データ",
         "marketing_data": "マーケティングデータ",
         "financial_data": "財務データ",
+        "document_data": "書類画像データ",
         "unknown": "不明なデータ"
     }
     return type_names.get(data_type, "財務データ")
@@ -438,6 +482,22 @@ def _get_analysis_instructions(data_type: str) -> str:
 - コンバージョン率とクリック率の改善点を指摘してください
 - 最も効率的なマーケティング施策を特定してください
 - 予算配分の最適化とROI向上策を提案してください""",
+
+        "inventory_data": """
+- 在庫総額と商品別在庫構成を分析してください
+- 在庫回転率、回転日数を計算し業界標準と比較してください
+- 滞留在庫、デッドストックのリスクを特定してください
+- 品切れ・欠品による機会損失を評価してください
+- 適正在庫レベルの設定と調達計画の最適化を提案してください
+- 季節性・需要変動を考慮した在庫管理改善策を提示してください""",
+
+        "customer_data": """
+- 顧客セグメント別の特性と行動パターンを分析してください
+- LTV（顧客生涯価値）とチャーン率（離脱率）を計算してください
+- 顧客獲得コスト（CAC）とLTVの比率を評価してください
+- 優良顧客の特徴と維持戦略を特定してください
+- 顧客満足度向上とリテンション改善策を提案してください
+- クロスセル・アップセル機会の発見と活用方法を提示してください""",
         
         "financial_data": """
 - データの主要な項目と数値を確認してください
@@ -449,7 +509,33 @@ def _get_analysis_instructions(data_type: str) -> str:
 
 def _bedrock_converse(model_id: str, region: str, prompt: str) -> str:
     client = boto3.client("bedrock-runtime", region_name=region)
-    system_ja = [{"text": "あなたは企業の財務データを分析する経験豊富な経営コンサルタントです。売上データ、損益計算書（PL表）、貸借対照表、キャッシュフロー計算書など、あらゆる数値データを分析できます。まず提供されたデータの種類を自動判別し、適切な分析を行ってください。回答は必ず日本語で、一般のビジネスパーソンにも分かりやすく説明してください。専門用語は必要最小限に留め、数値は千円単位で区切り、円マークを付けて表示してください。"}]
+    system_ja = [{
+        "text": """【戦略的AIプラットフォーム - B+C最適化実装済み】
+
+あなたは日本の中小企業に特化した経営コンサルタントです。以下の専門領域で高度な分析を実行してください：
+
+**分析対象データ**
+• 売上・収益データ（月次/日次/商品別）
+• 人事データ（給与、評価、離職率）  
+• マーケティングデータ（ROI、CV数、広告費）
+• 統合戦略データ（財務諸表、PL、BS、CF）
+
+**分析実行基準**
+1. データ種類の自動判別と最適分析手法の選択
+2. 具体的数値根拠に基づく課題抽出
+3. ROI/コスト効果を重視した実行可能な改善提案
+4. 業界ベンチマークとの比較（可能な場合）
+
+**出力フォーマット要件**
+• 日本語での分かりやすい説明
+• 数値は千円単位区切り（例：1,234千円）
+• 専門用語は最小限、必要時は解説付き
+• 優先度付きアクションプランの提示
+• リスク要因と対策の明記
+
+**品質保証**
+各分析において「なぜそうなるのか」「どう改善すべきか」「期待効果はいくらか」を必ず含めてください。"""
+    }]
     resp = client.converse(
         modelId=model_id,
         system=system_ja,
@@ -463,6 +549,88 @@ def _bedrock_converse(model_id: str, region: str, prompt: str) -> str:
         if "text" in p:  # DeepSeekのreasoningContentは無視
             txts.append(p["text"])
     return "\n".join([t for t in txts if t]).strip()
+
+def _process_image_with_textract(image_data: str, mime_type: str) -> str:
+    """AWS Textractを使用して画像からテキストを抽出"""
+    try:
+        textract = boto3.client('textract', region_name=REGION)
+        
+        # Base64デコード
+        image_bytes = base64.b64decode(image_data)
+        
+        # Textractでテキスト抽出
+        response = textract.detect_document_text(
+            Document={'Bytes': image_bytes}
+        )
+        
+        # テキストを結合
+        extracted_text = []
+        for item in response['Blocks']:
+            if item['BlockType'] == 'LINE':
+                extracted_text.append(item['Text'])
+        
+        return '\n'.join(extracted_text)
+    
+    except Exception as e:
+        logger.error(f"Textract error: {str(e)}")
+        return f"テキスト抽出エラー: {str(e)}"
+
+def _analyze_document_image(image_data: str, mime_type: str, analysis_type: str) -> str:
+    """画像書類を分析してビジネス分析を実行"""
+    try:
+        # Textractでテキスト抽出
+        extracted_text = _process_image_with_textract(image_data, mime_type)
+        
+        if "エラー" in extracted_text:
+            return extracted_text
+            
+        # 抽出されたテキストの種類を判定
+        document_type = "不明な書類"
+        if any(keyword in extracted_text for keyword in ["領収書", "レシート", "receipt"]):
+            document_type = "領収書・レシート"
+        elif any(keyword in extracted_text for keyword in ["請求書", "invoice", "bill"]):
+            document_type = "請求書"
+        elif any(keyword in extracted_text for keyword in ["名刺", "business card"]):
+            document_type = "名刺"
+        elif any(keyword in extracted_text for keyword in ["報告書", "レポート", "report"]):
+            document_type = "報告書・レポート"
+            
+        # AI分析用プロンプト作成
+        prompt = f"""
+以下の{document_type}の内容を分析し、ビジネス上の洞察を提供してください：
+
+【抽出されたテキスト】
+{extracted_text}
+
+【分析観点】
+1. 書類の種類と内容の概要
+2. 重要な数値・金額・日付の特定
+3. ビジネス上の意味と活用可能な情報
+4. 改善提案・注意点（該当する場合）
+5. データ入力・管理上の推奨事項
+
+日本語で分かりやすく分析結果を提供してください。
+"""
+        
+        # Bedrockで分析実行
+        analysis_result = _bedrock_converse(MODEL_ID, REGION, prompt)
+        
+        return f"""📄 **書類画像分析結果**
+
+**書類種類**: {document_type}
+
+**AI分析結果**:
+{analysis_result}
+
+---
+**抽出された元テキスト**:
+```
+{extracted_text}
+```"""
+        
+    except Exception as e:
+        logger.error(f"Document image analysis error: {str(e)}")
+        return f"書類画像分析エラー: {str(e)}"
 
 # ====== Handler ======
 def lambda_handler(event, context):
@@ -500,6 +668,38 @@ def lambda_handler(event, context):
     instruction = (data.get("instruction") or data.get("prompt") or "").strip()
     fmt = (data.get("responseFormat") or DEFAULT_FORMAT or "json").lower()
     requested_analysis_type = data.get("analysisType", "").strip()
+    
+    # 画像処理の分岐（document分析 または fileType='image'）
+    if requested_analysis_type == "document" or data.get("fileType") == "image":
+        image_data = data.get("imageData", "")
+        mime_type = data.get("mimeType", "image/jpeg")
+        
+        if not image_data:
+            return response_json(400, {
+                "response": {"summary": "画像データが含まれていません", "key_insights": [], "recommendations": []},
+                "format": "json", "message": "Missing image data"
+            })
+        
+        try:
+            logger.info("Starting image analysis")
+            analysis_result = _analyze_document_image(image_data, mime_type, requested_analysis_type)
+            
+            return response_json(200, {
+                "response": {
+                    "summary": analysis_result,
+                    "key_insights": ["画像からテキスト抽出完了", "AI分析実行済み"],
+                    "recommendations": ["抽出データの検証推奨", "重要情報の別途保存推奨"],
+                    "data_analysis": {"total_records": 1, "document_type": "image"}
+                },
+                "format": "json", "message": "Image analysis completed", "engine": "bedrock+textract", "model": MODEL_ID
+            })
+            
+        except Exception as e:
+            logger.error(f"Image analysis error: {str(e)}")
+            return response_json(500, {
+                "response": {"summary": f"画像分析エラー: {str(e)}", "key_insights": [], "recommendations": []},
+                "format": "json", "message": "Image analysis failed"
+            })
     
     # FORCE_JA option
     force_ja = os.environ.get("FORCE_JA","false").lower() in ("1","true")
