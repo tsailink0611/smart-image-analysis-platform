@@ -10,6 +10,12 @@ export const initSentry = () => {
     return;
   }
 
+  // DSNの基本的な形式チェック
+  if (!dsn.includes('ingest.sentry.io') || !dsn.startsWith('https://')) {
+    console.error('❌ Invalid Sentry DSN format. Expected format: https://key@org.ingest.sentry.io/project');
+    return;
+  }
+
   console.log('🔧 Sentry初期化中...', {
     dsn: dsn.substring(0, 50) + '...',
     debug,

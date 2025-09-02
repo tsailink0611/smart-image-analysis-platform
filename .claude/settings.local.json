@@ -24,7 +24,13 @@
       "Read(C:\\Users\\tsail\\Documents\\00_プロジェクト管理/**)",
       "Read(C:\\Users\\tsail\\Documents\\00_プロジェクト管理\\01_SAP売上分析システム/**)",
       "Read(C:\\Users\\tsail\\Documents\\00_プロジェクト管理\\01_SAP売上分析システム\\認証情報/**)",
-      "Bash(tar:*)"
+      "Bash(tar:*)",
+      "Bash(npm install:*)",
+      "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)",
+      "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)",
+      "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)",
+      "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)",
+      "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)"
     ],
     "deny": [],
     "ask": []
