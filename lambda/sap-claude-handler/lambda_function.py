@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 MODEL_ID       = os.environ.get("BEDROCK_MODEL_ID", "us.deepseek.r1-v1:0")
 REGION         = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
 DEFAULT_FORMAT = (os.environ.get("DEFAULT_FORMAT", "json") or "json").lower()  # 'json'|'markdown'|'text'
-MAX_TOKENS     = int(os.environ.get("MAX_TOKENS", "2200"))
+MAX_TOKENS     = int(os.environ.get("MAX_TOKENS", "8000"))  # 戦略レベル分析用に大幅増加
 TEMPERATURE    = float(os.environ.get("TEMPERATURE", "0.15"))
 
 # ====== LOG ======
@@ -140,34 +140,62 @@ def _build_prompt_json(stats: Dict[str, Any], sample: List[Dict[str, Any]], data
         },
         "required": ["overview", "findings", "kpis"]
     }
-    # データタイプ別の分析指示
-    analysis_instructions = _get_analysis_instructions(data_type)
     
-    return f"""あなたは企業の財務データを分析する経験豊富な経営コンサルタントです。以下のデータを見て、経営陣に分かりやすく説明してください。
+    # データタイプ別の戦略コンサルタント級分析指示
+    analysis_instructions = _get_analysis_instructions(data_type)
+    data_type_name = _get_data_type_name(data_type)
+    
+    return f"""【マッキンゼー級戦略コンサルティング実行指令】
 
-【データ種別】: {_get_data_type_name(data_type)}
+クライアント: 日本企業の経営陣
+分析対象: {data_type_name}
+分析水準: トップティア戦略コンサルティングファーム基準
 
-【分析指示】
+【CRITICAL SUCCESS FACTORS】
+以下の戦略分析フレームワークを"完全に実行"してください。表面的な分析は一切禁止です：
+
 {analysis_instructions}
 
-【出力形式】
-- 自然な日本語で、まるで同僚に説明するように書いてください
-- 専門用語は必要最小限に留め、誰でも理解できる表現を使ってください
-- 数字は「○○万円」「○○千円」など、日本人が普段使う表現で書いてください
-- 結果は以下のような形で整理してください：
-  - 「全体の状況」: データの概要を2-3行で
-  - 「気づいたこと」: 重要なポイントを3つまで
-  - 「数字のまとめ」: 主要な指標
+【MANDATORY DELIVERABLE STRUCTURE】
+1. **EXECUTIVE SUMMARY** (結論ファースト)
+   - 最重要な戦略的洞察を冒頭30秒で理解できる形で提示
+   - 経営インパクトの大きい上位3つの課題と機会を明確化
 
-※与えられたデータのみを使って分析してください（推測は避けてください）
-※以下の形式でJSONとして出力してください: {json.dumps(schema_hint, ensure_ascii=False)}
+2. **QUANTITATIVE DEEP DIVE** (数値徹底分析)
+   - 各KPIの要因分解と改善ポテンシャル算出（必ず金額ベース）
+   - 業界ベンチマーク比較（可能な範囲で競合水準を推定）
+   - トレンド分析による将来予測（3ヶ月、6ヶ月、1年後の数値予測）
 
-[統計要約]
-{json.dumps(stats, ensure_ascii=False)}
+3. **ROOT CAUSE ANALYSIS** (本質的課題特定)
+   - 問題の構造化（Issue Tree形式）
+   - 真因の3層深掘り（現象→直接原因→根本原因）
+   - 各要因の相対的影響度の定量評価
 
-[サンプル行]
-{json.dumps(sample, ensure_ascii=False)}
-"""
+4. **STRATEGIC RECOMMENDATIONS** (戦略的改善提案)
+   - Quick Wins（即効性あり、90日以内実行可能）
+   - Strategic Initiatives（中期、6-12ヶ月で成果）
+   - Transformational Changes（長期、1-3年の構造改革）
+   - 各提案のROI・実行難易度・リスクを明記
+
+5. **IMPLEMENTATION ROADMAP** (実行計画)
+   - 優先順位マトリックス（インパクト×実行容易性）
+   - 月次アクションプラン（責任部署・KPI・マイルストーン）
+   - 成功指標とトラッキング方法
+
+【OUTPUT QUALITY STANDARDS】
+• 経営陣が即座に意思決定できる具体性と説得力
+• 全主張に数値根拠とロジックを明示
+• 改善による財務インパクトを可能な限り金額で提示
+• 日本企業の組織文化・商慣習を考慮した実現可能な提案
+• プロフェッショナルな文体（但し理解しやすい日本語）
+
+※JSON形式で出力: {json.dumps(schema_hint, ensure_ascii=False)}
+
+【ANALYSIS TARGET DATA】
+統計サマリー: {json.dumps(stats, ensure_ascii=False)}
+サンプルデータ: {json.dumps(sample, ensure_ascii=False)}
+
+この分析は¥数百万円の戦略コンサルティング契約に匹敵する価値を提供してください。"""
 
 def _build_prompt_markdown(stats: Dict[str, Any], sample: List[Dict[str, Any]], data_type: str = "sales_data") -> str:
     return f"""あなたは会社の売上データを分析するビジネスアドバイザーです。以下の売上データを見て、社長や部長が読むレポートを、完全に日本語と数字だけで作成してください。
@@ -664,31 +692,40 @@ def _get_analysis_instructions(data_type: str) -> str:
 def _bedrock_converse(model_id: str, region: str, prompt: str) -> str:
     client = boto3.client("bedrock-runtime", region_name=region)
     system_ja = [{
-        "text": """【戦略的AIプラットフォーム - B+C最適化実装済み】
+        "text": """【戦略コンサルタント級AIプラットフォーム - エンタープライズ仕様】
 
-あなたは日本の中小企業に特化した経営コンサルタントです。以下の専門領域で高度な分析を実行してください：
+あなたはマッキンゼー・BCG・ベインレベルの戦略コンサルタントです。日本企業の経営課題に対して、以下の専門性で最高水準の分析を提供してください：
 
-**分析対象データ**
-• 売上・収益データ（月次/日次/商品別）
-• 人事データ（給与、評価、離職率）  
-• マーケティングデータ（ROI、CV数、広告費）
-• 統合戦略データ（財務諸表、PL、BS、CF）
+**コンサルティング専門領域**
+• 財務戦略・企業価値最大化（ROE/ROIC最適化、資本効率向上）
+• 営業・マーケティング戦略（顧客獲得・収益性向上・市場拡大）
+• 人事・組織戦略（人材最適化・生産性向上・離職率改善）
+• オペレーショナル・エクセレンス（プロセス改善・コスト削減）
+• デジタル変革・イノベーション戦略
 
-**分析実行基準**
-1. データ種類の自動判別と最適分析手法の選択
-2. 具体的数値根拠に基づく課題抽出
-3. ROI/コスト効果を重視した実行可能な改善提案
-4. 業界ベンチマークとの比較（可能な場合）
+**分析実行フレームワーク（必須遵守）**
+1. **Issue Tree分析**: 問題を構造化し、MECE（漏れなく・重複なく）で課題を特定
+2. **定量分析**: 全指標のトレンド・要因分解・影響度を数値で立証
+3. **ベンチマーク比較**: 業界標準・競合他社との差異を明確化
+4. **Root Cause特定**: 問題の本質的原因を3層まで深掘り
+5. **Impact算出**: 各改善案の投資効果を具体的金額で算出
+6. **Implementation Plan**: 実行ロードマップ（責任者・期限・KPI付き）
 
-**出力フォーマット要件**
-• 日本語での分かりやすい説明
-• 数値は千円単位区切り（例：1,234千円）
-• 専門用語は最小限、必要時は解説付き
-• 優先度付きアクションプランの提示
-• リスク要因と対策の明記
+**アウトプット品質基準**
+• 経営層が意思決定に使える戦略レベルの洞察
+• 仮説→検証→結論の論理構造を明確化
+• Quick Wins（即効性）とLong-term Value（持続性）の両軸で提案
+• リスク・前提条件・成功要因を必ず明記
+• 数値は必ず根拠を示し、改善ポテンシャルを金額で定量化
 
-**品質保証**
-各分析において「なぜそうなるのか」「どう改善すべきか」「期待効果はいくらか」を必ず含めてください。"""
+**出力仕様（厳守）**
+• 結論ファーストで要点を冒頭に提示
+• 「So What?」（だから何？）を常に意識した価値ある提言
+• 実行可能性とインパクトの2軸で優先順位を設定
+• 成功事例・ベストプラクティスを可能な限り引用
+• 日本企業特有の組織文化・商慣習を考慮した現実的提案
+
+あなたの分析は経営陣の戦略意思決定に直接影響する重要な成果物です。妥協のない最高水準の品質で応答してください。"""
     }]
     resp = client.converse(
         modelId=model_id,
