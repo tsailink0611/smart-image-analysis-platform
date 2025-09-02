@@ -1337,16 +1337,19 @@ ${dataTable}
           {isDragging ? '📥' : '📊'}
         </div>
         <h3 style={{ marginTop: 0, color: '#555', marginBottom: '15px' }}>
-          {isDragging ? 'ここにファイルをドロップ' : '売上データをアップロード'}
+          {isDragging ? 'ここにファイルをドロップ' : '各種データをアップロード'}
         </h3>
         
         <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
-          ファイルをドラッグ&ドロップ、またはクリックして選択
+          {selectedAnalysisType === 'document' ? 
+            '画像ファイル（JPG, PNG, PDF, WebP）をドラッグ&ドロップ、またはクリックして選択' :
+            'データファイル（CSV, Excel）をドラッグ&ドロップ、またはクリックして選択'
+          }
         </p>
         
         <input
           type="file"
-          accept=".csv,.xlsx,.xls"
+          accept={selectedAnalysisType === 'document' ? '.jpg,.jpeg,.png,.pdf,.webp' : '.csv,.xlsx,.xls'}
           onChange={handleFileUpload}
           id="file-input"
           style={{ display: 'none' }}
