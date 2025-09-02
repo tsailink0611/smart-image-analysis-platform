@@ -911,7 +911,7 @@ function App() {
     setResponse('');            // 既存表示のクリア
 
     try {
-      const endpoint = import.meta.env.VITE_API_ENDPOINT ?? '/api/analysis';
+      const endpoint = API_ENDPOINT;
       const body = {
         prompt,
         salesData,              // 画面のデータ配列
