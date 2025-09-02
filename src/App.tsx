@@ -5,8 +5,11 @@ import * as XLSX from 'xlsx'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import ColumnMappingLearning from './components/ColumnMappingLearning'
 import SimpleAuth from './components/SimpleAuth'
+import { ErrorBoundary, SentryErrorBoundary } from './components/ErrorBoundary'
 import { saveFormatProfile, getFormatProfile } from './lib/supabase'
 import { checkSupabaseConfig } from './lib/debug-supabase'
+import { captureError, captureMessage } from './lib/sentry'
+import * as Sentry from '@sentry/react'
 
 // APIエンドポイント設定
 const API_ENDPOINT = "/api/analysis";
@@ -1107,6 +1110,15 @@ ${dataTable}
       console.error('❌ Error Response:', error.response);
       console.error('❌ Error Request:', error.request);
       
+      // Sentryにエラーを報告
+      captureError(error, {
+        context: 'API_CALL',
+        endpoint: API_ENDPOINT,
+        analysisType: selectedAnalysisType,
+        hasData: isFileUploaded,
+        dataSize: salesData?.length || 0
+      });
+      
       let errorMessage = '🔴 **APIエラーが発生しました:**\n\n';
       
       if (error.response) {
@@ -1168,12 +1180,13 @@ ${dataTable}
 
   // 認証済みの場合メインアプリ
   return (
-    <div style={{
-      maxWidth: '800px',
-      margin: '0 auto',
-      padding: '20px',
-      fontFamily: 'Arial, sans-serif'
-    }}>
+    <SentryErrorBoundary>
+      <div style={{
+        maxWidth: '800px',
+        margin: '0 auto',
+        padding: '20px',
+        fontFamily: 'Arial, sans-serif'
+      }}>
       {/* ヘッダー */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h1 style={{
@@ -1190,20 +1203,42 @@ ${dataTable}
           <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>
             使用回数: {user.usageCount} / {user.usageLimit}
           </div>
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: '5px 15px',
-              fontSize: '0.8rem',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            ログアウト
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => {
+                // Sentryテスト用のエラーを送信
+                console.log('🧪 Sentryテストエラーを送信中...');
+                captureMessage('テスト: フロントエンドからSentryへの接続確認', 'info');
+                Sentry.captureException(new Error('テスト用エラー: Sentry接続確認'));
+                alert('Sentryテストメッセージを送信しました。Sentryダッシュボードを確認してください。');
+              }}
+              style={{
+                padding: '5px 15px',
+                fontSize: '0.8rem',
+                backgroundColor: '#e74c3c',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              🧪 Sentryテスト
+            </button>
+            <button
+              onClick={handleLogout}
+              style={{
+                padding: '5px 15px',
+                fontSize: '0.8rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              ログアウト
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1807,6 +1842,7 @@ ${dataTable}
         />
       )}
     </div>
+    </SentryErrorBoundary>
   )
 }
 
