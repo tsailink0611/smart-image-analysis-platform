@@ -1,7 +1,7 @@
 # lambda_function.py
 # Stable, no external deps. Reads salesData (array) or csv (string). Bedrock converse. CORS/OPTIONS ready.
 
-import json, os, base64, logging, boto3
+import json, os, base64, logging, boto3, requests
 from collections import Counter, defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -11,6 +11,7 @@ REGION         = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION
 DEFAULT_FORMAT = (os.environ.get("DEFAULT_FORMAT", "json") or "json").lower()  # 'json'|'markdown'|'text'
 MAX_TOKENS     = int(os.environ.get("MAX_TOKENS", "8000"))  # 戦略レベル分析用に大幅増加
 TEMPERATURE    = float(os.environ.get("TEMPERATURE", "0.15"))
+LINE_NOTIFY_TOKEN = os.environ.get("LINE_NOTIFY_TOKEN", "")
 
 # ====== LOG ======
 logger = logging.getLogger()
@@ -823,6 +824,107 @@ def _analyze_document_image(image_data: str, mime_type: str, analysis_type: str)
         logger.error(f"Document image analysis error: {str(e)}")
         return f"書類画像分析エラー: {str(e)}"
 
+# ====== LINE Notify & Sentry Webhook処理 ======
+def send_line_notification(message: str) -> bool:
+    """LINE Notify APIを使用してメッセージを送信"""
+    if not LINE_NOTIFY_TOKEN:
+        logger.error("LINE_NOTIFY_TOKEN not configured")
+        return False
+    
+    try:
+        headers = {
+            'Authorization': f'Bearer {LINE_NOTIFY_TOKEN}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        data = {'message': message}
+        
+        response = requests.post(
+            'https://notify-api.line.me/api/notify',
+            headers=headers,
+            data=data,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            logger.info("✅ LINE通知送信成功")
+            return True
+        else:
+            logger.error(f"❌ LINE通知送信失敗: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ LINE通知エラー: {str(e)}")
+        return False
+
+def process_sentry_webhook(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Sentryからのwebhookペイロードを処理してLINE通知を送信"""
+    try:
+        # Sentryペイロードの検出
+        if not ("event" in data or "action" in data or "data" in data):
+            return None
+            
+        logger.info("🔴 Sentryからのwebhookペイロードを検出")
+        
+        # エラー情報を抽出
+        error_title = "不明なエラー"
+        error_detail = ""
+        project_name = ""
+        environment = ""
+        
+        # Sentryのペイロード構造に応じて情報抽出
+        if "data" in data:
+            event_data = data["data"]
+            if "issue" in event_data:
+                issue = event_data["issue"]
+                error_title = issue.get("title", error_title)
+                project_name = issue.get("project", {}).get("name", "")
+            elif "event" in event_data:
+                event = event_data["event"]
+                error_title = event.get("title", event.get("message", error_title))
+                environment = event.get("environment", "")
+        elif "event" in data:
+            event = data["event"]
+            error_title = event.get("title", event.get("message", error_title))
+            environment = event.get("environment", "")
+            
+        # LINE通知メッセージを作成
+        timestamp = ""
+        try:
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            pass
+            
+        message = f"""🚨 【SAP Frontend - エラー通知】
+
+📍 エラー: {error_title}
+
+🏢 プロジェクト: {project_name or "SAP Frontend"}
+🌍 環境: {environment or "production"}  
+🕒 発生時刻: {timestamp}
+
+🔗 Sentryで詳細を確認してください
+"""
+        
+        # LINE通知を送信
+        success = send_line_notification(message)
+        
+        # レスポンスを返す
+        return response_json(200, {
+            "message": "Sentry webhook processed",
+            "line_notification": "success" if success else "failed",
+            "error_title": error_title,
+            "project": project_name,
+            "environment": environment
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Sentry webhook処理エラー: {str(e)}")
+        return response_json(500, {
+            "message": "Sentry webhook processing failed",
+            "error": str(e)
+        })
+
 # ====== Handler ======
 def lambda_handler(event, context):
     # Early echo（必要時のみ）
@@ -854,6 +956,11 @@ def lambda_handler(event, context):
             "response": {"summary": f"INVALID_JSON: {str(e)}", "key_insights": [], "recommendations": [], "data_analysis": {"total_records": 0}},
             "format": "json", "message": "INVALID_JSON", "engine": "bedrock", "model": MODEL_ID
         })
+
+    # Sentry Webhook処理を最優先でチェック
+    sentry_response = process_sentry_webhook(data)
+    if sentry_response is not None:
+        return sentry_response
 
     # Inputs
     instruction = (data.get("instruction") or data.get("prompt") or "").strip()
