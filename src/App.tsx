@@ -558,7 +558,7 @@ function App() {
   };
 
   // ファイル処理の共通関数
-  // 画像ファイル処理関数
+  // 画像ファイル処理関数（改善版）
   const processImageFile = async (file: File) => {
     if (!file) return;
 
@@ -566,25 +566,38 @@ function App() {
 
     // 画像形式の確認
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    if (!['jpg', 'jpeg', 'png', 'pdf', 'webp'].includes(fileExtension || '')) {
-      setResponse(`❌ サポートされていない画像形式です。JPG、PNG、PDF、WebP形式のファイルをアップロードしてください。`);
+    const supportedFormats = ['jpg', 'jpeg', 'png', 'pdf', 'webp', 'gif', 'bmp'];
+    
+    if (!supportedFormats.includes(fileExtension || '')) {
+      setResponse(`❌ サポートされていない画像形式です。\n\n対応形式: ${supportedFormats.map(f => f.toUpperCase()).join(', ')}\nアップロードされたファイル: ${file.name}`);
+      return;
+    }
+
+    // ファイルサイズチェック（10MB制限）
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setResponse(`❌ ファイルサイズが大きすぎます。\n\nファイルサイズ: ${(file.size / 1024 / 1024).toFixed(1)}MB\n上限: ${maxSize / 1024 / 1024}MB\n\nより小さなファイルをお試しください。`);
       return;
     }
 
     try {
       setIsLoading(true);
-      setResponse('📷 画像を分析中...');
+      setResponse(`📷 画像分析を開始しています...\n\n📄 ファイル情報:\n• ファイル名: ${file.name}\n• サイズ: ${(file.size / 1024).toFixed(1)}KB\n• 形式: ${file.type}\n\n⏳ Base64エンコード中...`);
 
-      // Base64エンコード
+      // Base64エンコード（進捗表示付き）
       const base64String = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
           // data:image/jpeg;base64, の部分を削除
           const base64 = result.split(',')[1];
+          setResponse(prev => prev + '\n✅ Base64エンコード完了\n⏳ Lambda関数に送信中...');
           resolve(base64);
         };
-        reader.onerror = reject;
+        reader.onerror = (error) => {
+          console.error('📷 ファイル読み込みエラー:', error);
+          reject(new Error('ファイルの読み込みに失敗しました'));
+        };
         reader.readAsDataURL(file);
       });
 
@@ -594,28 +607,103 @@ function App() {
         fileType: 'image',
         imageData: base64String,
         fileName: file.name,
-        mimeType: file.type
+        mimeType: file.type,
+        fileSize: file.size,
+        timestamp: new Date().toISOString()
       };
 
-      console.log('📷 画像分析リクエスト送信:', { fileName: file.name, size: file.size, type: file.type });
+      console.log('📷 画像分析リクエスト送信:', { 
+        fileName: file.name, 
+        size: file.size, 
+        type: file.type,
+        base64Length: base64String.length 
+      });
+
+      setResponse(prev => prev + '\n📡 Lambda関数で画像分析実行中...\n⏱️ 通常30-60秒程度かかります');
 
       const response = await axios.post(API_ENDPOINT, payload, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 60000 // 60秒タイムアウト（画像処理は時間がかかる）
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Request-Source': 'image-analysis'
+        },
+        timeout: 90000, // 90秒タイムアウト（画像処理は時間がかかる）
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          console.log(`📷 アップロード進捗: ${percentCompleted}%`);
+        }
       });
 
       const result = response.data;
       console.log('📷 画像分析結果受信:', result);
 
-      if (result && result.response) {
-        setResponse(result.response.summary || '画像分析が完了しました。');
+      if (result) {
+        let analysisResult = '';
+        
+        // レスポンス形式に応じて結果を抽出
+        if (result.response && typeof result.response === 'string') {
+          analysisResult = result.response;
+        } else if (result.response && result.response.summary) {
+          analysisResult = result.response.summary;
+        } else if (result.summary) {
+          analysisResult = result.summary;
+        } else if (typeof result === 'string') {
+          analysisResult = result;
+        } else {
+          analysisResult = JSON.stringify(result, null, 2);
+        }
+
+        const finalResult = `✅ 画像分析が完了しました！\n\n📄 分析結果:\n${analysisResult}\n\n📊 ファイル処理情報:\n• ファイル名: ${file.name}\n• 処理時間: ${Date.now() - Date.now()}ms\n• 分析タイプ: ${selectedAnalysisType}`;
+        
+        setResponse(finalResult);
         setIsFileUploaded(true);
+        
+        // SentryにSuccess情報を送信
+        captureMessage(`画像分析成功: ${file.name}`, 'info');
       } else {
-        setResponse('❌ 画像分析に失敗しました。もう一度お試しください。');
+        throw new Error('Lambda関数からの応答が空です');
       }
     } catch (error: any) {
       console.error('📷 画像分析エラー:', error);
-      setResponse(`❌ 画像分析エラー: ${error.message || '不明なエラー'}`);
+      
+      // 詳細なエラーメッセージを生成
+      let errorMessage = '❌ 画像分析中にエラーが発生しました。\n\n';
+      
+      if (error.response) {
+        // HTTPレスポンスエラー
+        errorMessage += `🔴 HTTPエラー: ${error.response.status} ${error.response.statusText}\n`;
+        if (error.response.data) {
+          errorMessage += `📝 サーバーメッセージ: ${JSON.stringify(error.response.data, null, 2)}\n`;
+        }
+      } else if (error.request) {
+        // ネットワークエラー
+        errorMessage += '🌐 ネットワークエラー: Lambda関数への接続に失敗しました\n';
+        errorMessage += '• インターネット接続を確認してください\n';
+        errorMessage += '• AWSのLambda関数が正常に動作しているか確認してください\n';
+      } else if (error.code === 'TIMEOUT' || error.message.includes('timeout')) {
+        // タイムアウトエラー
+        errorMessage += '⏰ タイムアウトエラー: 処理に時間がかかりすぎています\n';
+        errorMessage += '• より小さなファイルを試してみてください\n';
+        errorMessage += '• しばらく時間をおいてから再試行してください\n';
+      } else {
+        // その他のエラー
+        errorMessage += `🐛 エラー詳細: ${error.message}\n`;
+      }
+      
+      errorMessage += `\n🔧 デバッグ情報:\n`;
+      errorMessage += `• ファイル: ${file.name} (${(file.size / 1024).toFixed(1)}KB)\n`;
+      errorMessage += `• 分析タイプ: ${selectedAnalysisType}\n`;
+      errorMessage += `• タイムスタンプ: ${new Date().toLocaleString()}\n`;
+      
+      setResponse(errorMessage);
+      
+      // Sentryにエラーを報告
+      captureError(error, {
+        context: 'IMAGE_ANALYSIS',
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        analysisType: selectedAnalysisType
+      });
     } finally {
       setIsLoading(false);
     }
