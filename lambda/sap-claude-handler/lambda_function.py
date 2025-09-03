@@ -859,8 +859,17 @@ def send_line_notification(message: str) -> bool:
 def process_sentry_webhook(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Sentryからのwebhookペイロードを処理してLINE通知を送信"""
     try:
-        # Sentryペイロードの検出
-        if not ("event" in data or "action" in data or "data" in data):
+        # Sentryペイロードの検出 - より柔軟に
+        is_sentry_webhook = (
+            "event" in data or 
+            "action" in data or 
+            ("data" in data and isinstance(data["data"], dict) and ("issue" in data["data"] or "event" in data["data"])) or
+            ("installation" in data) or
+            ("alert" in data)
+        )
+        
+        if not is_sentry_webhook:
+            # Sentryペイロードではない場合はNoneを返す（通常の処理に進む）
             return None
             
         logger.info("🔴 Sentryからのwebhookペイロードを検出")
@@ -957,6 +966,9 @@ def lambda_handler(event, context):
             "format": "json", "message": "INVALID_JSON", "engine": "bedrock", "model": MODEL_ID
         })
 
+    # デバッグ: 受信データの構造をログ出力
+    logger.info(f"🔍 受信データの構造: {list(data.keys())}")
+    
     # Sentry Webhook処理を最優先でチェック
     sentry_response = process_sentry_webhook(data)
     if sentry_response is not None:
