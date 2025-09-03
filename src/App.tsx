@@ -221,6 +221,8 @@ function App() {
   const [showColumnMapping, setShowColumnMapping] = useState(false)
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({})
   const [selectedAnalysisType, setSelectedAnalysisType] = useState<string>('sales')
+  const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null)
+  const [imageAnalysisResult, setImageAnalysisResult] = useState<string>('')
 
   // 認証チェック（ページ読み込み時）
   useEffect(() => {
@@ -584,15 +586,20 @@ function App() {
       setIsLoading(true);
       setResponse(`📷 画像分析を開始しています...\n\n📄 ファイル情報:\n• ファイル名: ${file.name}\n• サイズ: ${(file.size / 1024).toFixed(1)}KB\n• 形式: ${file.type}\n\n⏳ Base64エンコード中...`);
 
-      // Base64エンコード（進捗表示付き）
-      const base64String = await new Promise<string>((resolve, reject) => {
+      // Base64エンコードとプレビュー生成（進捗表示付き）
+      const { base64String, previewUrl } = await new Promise<{base64String: string, previewUrl: string}>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
           // data:image/jpeg;base64, の部分を削除
           const base64 = result.split(',')[1];
-          setResponse(prev => prev + '\n✅ Base64エンコード完了\n⏳ Lambda関数に送信中...');
-          resolve(base64);
+          // プレビュー用にはdata URLをそのまま使用
+          const previewDataUrl = result;
+          
+          // 画像プレビューを設定
+          setUploadedImagePreview(previewDataUrl);
+          setResponse(prev => prev + '\n✅ Base64エンコード完了\n📸 画像プレビュー生成完了\n⏳ Lambda関数に送信中...');
+          resolve({ base64String: base64, previewUrl: previewDataUrl });
         };
         reader.onerror = (error) => {
           console.error('📷 ファイル読み込みエラー:', error);
@@ -655,6 +662,7 @@ function App() {
         const finalResult = `✅ 画像分析が完了しました！\n\n📄 分析結果:\n${analysisResult}\n\n📊 ファイル処理情報:\n• ファイル名: ${file.name}\n• 処理時間: ${Date.now() - Date.now()}ms\n• 分析タイプ: ${selectedAnalysisType}`;
         
         setResponse(finalResult);
+        setImageAnalysisResult(analysisResult);
         setIsFileUploaded(true);
         
         // SentryにSuccess情報を送信
@@ -1799,6 +1807,105 @@ ${dataTable}
               <p style={{ marginTop: '10px', color: '#666', fontSize: '12px' }}>
                 ※ 最初の10行のみ表示しています（全{salesData.length}行）
               </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 画像プレビューセクション */}
+      {uploadedImagePreview && selectedAnalysisType === 'document' && (
+        <div style={{ marginTop: '30px' }}>
+          <h2 style={{ color: '#333', marginBottom: '20px' }}>📸 アップロード画像プレビュー</h2>
+          
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '20px', 
+            borderRadius: '8px', 
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            display: 'flex',
+            gap: '20px',
+            alignItems: 'flex-start'
+          }}>
+            {/* 画像表示 */}
+            <div style={{ flex: '0 0 auto', maxWidth: '400px' }}>
+              <img 
+                src={uploadedImagePreview} 
+                alt="アップロード画像"
+                style={{ 
+                  width: '100%', 
+                  height: 'auto',
+                  maxHeight: '300px',
+                  objectFit: 'contain',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+              />
+            </div>
+            
+            {/* 分析結果 */}
+            {imageAnalysisResult && (
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <h3 style={{ color: '#555', marginBottom: '15px', fontSize: '1.1rem' }}>
+                  🔍 分析結果
+                </h3>
+                <div style={{
+                  backgroundColor: '#f8f9fa',
+                  padding: '15px',
+                  borderRadius: '6px',
+                  border: '1px solid #e9ecef',
+                  maxHeight: '250px',
+                  overflowY: 'auto',
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {imageAnalysisResult}
+                </div>
+                
+                {/* 操作ボタン */}
+                <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => {
+                      setUploadedImagePreview(null);
+                      setImageAnalysisResult('');
+                      setResponse('');
+                      setIsFileUploaded(false);
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      backgroundColor: '#6c757d',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🗑️ クリア
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = uploadedImagePreview;
+                      link.download = 'analyzed-image.jpg';
+                      link.click();
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    💾 画像保存
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
