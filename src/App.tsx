@@ -1278,28 +1278,78 @@ ${dataTable}
   return (
     <SentryErrorBoundary>
       <div style={{
-        maxWidth: '800px',
+        maxWidth: '1200px',
         margin: '0 auto',
-        padding: '20px',
-        fontFamily: 'Arial, sans-serif'
+        padding: '32px 24px',
+        fontFamily: '"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
+        backgroundColor: '#fafafa',
+        minHeight: '100vh',
+        lineHeight: 1.6,
+        color: '#2c3e50'
       }}>
       {/* ヘッダー */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1 style={{
-          color: '#333',
-          margin: 0
-        }}>
-          🎯 Strategic AI Platform - 統合分析コンサル
-        </h1>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '48px',
+        padding: '24px',
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+        border: '1px solid #e8eef7'
+      }}>
+        <div>
+          <h1 style={{
+            color: '#1a365d',
+            margin: 0,
+            fontSize: '2.25rem',
+            fontWeight: '700',
+            letterSpacing: '-0.02em',
+            lineHeight: 1.2
+          }}>
+            Strategic AI Platform
+          </h1>
+          <p style={{
+            color: '#4a5568',
+            margin: '8px 0 0 0',
+            fontSize: '1.125rem',
+            fontWeight: '400',
+            letterSpacing: '0.01em'
+          }}>
+            統合分析コンサルティング
+          </p>
+        </div>
         
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '5px' }}>
-            👤 {user.name} ({user.company})
+          <div style={{ 
+            fontSize: '1rem', 
+            color: '#2d3748', 
+            marginBottom: '8px',
+            fontWeight: '500'
+          }}>
+            {user.name}
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>
-            使用回数: {user.usageCount} / {user.usageLimit}
+          <div style={{ 
+            fontSize: '0.875rem', 
+            color: '#718096', 
+            marginBottom: '12px',
+            fontWeight: '400'
+          }}>
+            {user.company}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ 
+            fontSize: '0.875rem', 
+            color: '#718096', 
+            marginBottom: '16px',
+            padding: '6px 12px',
+            backgroundColor: '#f7fafc',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0'
+          }}>
+            使用回数: <span style={{ fontWeight: '600', color: '#2d3748' }}>{user.usageCount}</span> / {user.usageLimit}
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
             <button
               onClick={() => {
                 // Sentryテスト用のエラーを送信
@@ -1309,13 +1359,23 @@ ${dataTable}
                 alert('Sentryテストメッセージを送信しました。Sentryダッシュボードを確認してください。');
               }}
               style={{
-                padding: '5px 15px',
-                fontSize: '0.8rem',
-                backgroundColor: '#e74c3c',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
+                padding: '10px 16px',
+                fontSize: '0.875rem',
+                backgroundColor: '#fed7d7',
+                color: '#c53030',
+                border: '1px solid #feb2b2',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#feb2b2';
+                e.currentTarget.style.borderColor = '#fc8181';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#fed7d7';
+                e.currentTarget.style.borderColor = '#feb2b2';
               }}
             >
               🧪 Sentryテスト
@@ -1323,13 +1383,23 @@ ${dataTable}
             <button
               onClick={handleLogout}
               style={{
-                padding: '5px 15px',
-                fontSize: '0.8rem',
-                backgroundColor: '#6c757d',
+                padding: '10px 16px',
+                fontSize: '0.875rem',
+                backgroundColor: '#4a5568',
                 color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
+                border: '1px solid #4a5568',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#2d3748';
+                e.currentTarget.style.borderColor = '#2d3748';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#4a5568';
+                e.currentTarget.style.borderColor = '#4a5568';
               }}
             >
               ログアウト
@@ -1339,11 +1409,37 @@ ${dataTable}
       </div>
 
       {/* 分析タイプ選択セクション */}
-      <div style={{ marginBottom: '30px' }}>
-        <h2 style={{ color: '#333', marginBottom: '15px', fontSize: '1.2rem' }}>
-          🔍 分析タイプを選択
+      <div style={{ 
+        marginBottom: '48px',
+        padding: '32px',
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+        border: '1px solid #e8eef7'
+      }}>
+        <h2 style={{ 
+          color: '#1a365d', 
+          marginBottom: '24px', 
+          fontSize: '1.5rem',
+          fontWeight: '600',
+          letterSpacing: '-0.01em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ 
+            backgroundColor: '#e6fffa', 
+            padding: '8px', 
+            borderRadius: '12px',
+            fontSize: '1.25rem'
+          }}>🔍</span>
+          分析タイプを選択
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', 
+          gap: '20px' 
+        }}>
           {ANALYSIS_TYPES.map(type => {
             const isAccessible = USER_ACCESS[user.id]?.includes(type.id) || false
             const isSelected = selectedAnalysisType === type.id
@@ -1353,51 +1449,88 @@ ${dataTable}
                 key={type.id}
                 onClick={() => isAccessible && setSelectedAnalysisType(type.id)}
                 style={{
-                  padding: '20px',
-                  border: `2px solid ${isSelected ? '#007bff' : '#e0e0e0'}`,
-                  borderRadius: '8px',
-                  backgroundColor: isSelected ? '#f8f9ff' : (isAccessible ? 'white' : '#f5f5f5'),
+                  padding: '24px',
+                  border: `2px solid ${isSelected ? '#3182ce' : (isAccessible ? '#e2e8f0' : '#f1f5f9')}`,
+                  borderRadius: '12px',
+                  backgroundColor: isSelected ? '#ebf8ff' : (isAccessible ? '#ffffff' : '#f8fafc'),
                   cursor: isAccessible ? 'pointer' : 'not-allowed',
                   opacity: isAccessible ? 1 : 0.6,
-                  transition: 'all 0.2s ease',
-                  position: 'relative'
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  boxShadow: isSelected ? '0 8px 25px rgba(49, 130, 206, 0.15)' : '0 2px 8px rgba(0, 0, 0, 0.06)',
+                  transform: isSelected ? 'translateY(-2px)' : 'translateY(0)'
+                }}
+                onMouseEnter={(e) => {
+                  if (isAccessible && !isSelected) {
+                    e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.12)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.borderColor = '#cbd5e0';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (isAccessible && !isSelected) {
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.06)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                  }
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '1.5rem', marginRight: '10px' }}>{type.icon}</span>
-                  <h3 style={{ margin: 0, color: isAccessible ? '#333' : '#999', fontSize: '1.1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+                  <span style={{ 
+                    fontSize: '1.75rem', 
+                    marginRight: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '48px',
+                    height: '48px',
+                    backgroundColor: isSelected ? '#3182ce' : (isAccessible ? '#f7fafc' : '#f8fafc'),
+                    borderRadius: '12px',
+                    color: isSelected ? 'white' : 'inherit'
+                  }}>{type.icon}</span>
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: isAccessible ? '#2d3748' : '#a0aec0', 
+                    fontSize: '1.25rem',
+                    fontWeight: '600',
+                    letterSpacing: '-0.01em'
+                  }}>
                     {type.name}
                   </h3>
                   {!isAccessible && (
                     <span style={{ 
                       marginLeft: 'auto', 
-                      fontSize: '1.2rem', 
-                      color: '#999' 
+                      fontSize: '1.25rem', 
+                      color: '#cbd5e0',
+                      opacity: 0.7
                     }}>🔒</span>
                   )}
                 </div>
                 <p style={{ 
                   margin: 0, 
-                  color: isAccessible ? '#666' : '#999', 
-                  fontSize: '0.9rem',
-                  lineHeight: '1.4'
+                  color: isAccessible ? '#4a5568' : '#a0aec0', 
+                  fontSize: '0.95rem',
+                  lineHeight: '1.6',
+                  fontWeight: '400'
                 }}>
                   {type.description}
                 </p>
                 {isSelected && (
                   <div style={{
                     position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    backgroundColor: '#007bff',
+                    top: '16px',
+                    right: '16px',
+                    backgroundColor: '#3182ce',
                     color: 'white',
                     borderRadius: '50%',
-                    width: '20px',
-                    height: '20px',
+                    width: '28px',
+                    height: '28px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.8rem'
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    boxShadow: '0 2px 8px rgba(49, 130, 206, 0.3)'
                   }}>
                     ✓
                   </div>
@@ -1405,14 +1538,16 @@ ${dataTable}
                 {!isAccessible && (
                   <div style={{
                     position: 'absolute',
-                    bottom: '10px',
-                    right: '10px',
-                    backgroundColor: '#ffc107',
-                    color: '#333',
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    fontSize: '0.7rem',
-                    fontWeight: 'bold'
+                    bottom: '16px',
+                    right: '16px',
+                    backgroundColor: type.tier === 'premium' ? '#ed8936' : type.tier === 'enterprise' ? '#805ad5' : '#38b2ac',
+                    color: 'white',
+                    padding: '6px 12px',
+                    borderRadius: '16px',
+                    fontSize: '0.75rem',
+                    fontWeight: '600',
+                    letterSpacing: '0.025em',
+                    textTransform: 'uppercase'
                   }}>
                     {type.tier === 'premium' ? 'プレミアム' : type.tier === 'enterprise' ? 'エンタープライズ' : 'ベーシック'}
                   </div>
