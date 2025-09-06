@@ -1560,22 +1560,49 @@ ${dataTable}
         {/* 選択された分析タイプの説明 */}
         {selectedAnalysisType && (
           <div style={{
-            marginTop: '20px',
-            padding: '15px',
-            backgroundColor: '#e3f2fd',
-            borderRadius: '8px',
-            border: '1px solid #1976d2'
+            marginTop: '32px',
+            padding: '20px',
+            backgroundColor: '#e6fffa',
+            borderRadius: '12px',
+            border: '2px solid #38b2ac',
+            boxShadow: '0 2px 8px rgba(56, 178, 172, 0.1)'
           }}>
             {(() => {
               const selectedType = ANALYSIS_TYPES.find(t => t.id === selectedAnalysisType)
               return selectedType ? (
-                <div>
-                  <strong style={{ color: '#1976d2' }}>
-                    {selectedType.icon} {selectedType.name}が選択されています
-                  </strong>
-                  <p style={{ margin: '5px 0 0 0', color: '#333', fontSize: '0.9rem' }}>
-                    {selectedType.description}
-                  </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{
+                    backgroundColor: '#38b2ac',
+                    color: 'white',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    fontSize: '1.5rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '48px',
+                    height: '48px'
+                  }}>
+                    {selectedType.icon}
+                  </div>
+                  <div>
+                    <div style={{ 
+                      color: '#1a202c', 
+                      fontSize: '1.125rem',
+                      fontWeight: '600',
+                      marginBottom: '4px'
+                    }}>
+                      {selectedType.name}が選択されています
+                    </div>
+                    <p style={{ 
+                      margin: 0, 
+                      color: '#2d3748', 
+                      fontSize: '0.95rem',
+                      lineHeight: '1.5'
+                    }}>
+                      {selectedType.description}
+                    </p>
+                  </div>
                 </div>
               ) : null
             })()}
@@ -1589,27 +1616,68 @@ ${dataTable}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         style={{
-          marginBottom: '30px',
-          padding: '30px',
-          border: `3px dashed ${isDragging ? '#007bff' : '#ddd'}`,
-          borderRadius: '12px',
-          backgroundColor: isDragging ? '#e7f3ff' : '#fafafa',
+          marginBottom: '48px',
+          padding: '40px',
+          border: `3px dashed ${isDragging ? '#3182ce' : '#cbd5e0'}`,
+          borderRadius: '16px',
+          backgroundColor: isDragging ? '#ebf8ff' : 'white',
           textAlign: 'center',
           transition: 'all 0.3s ease',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          boxShadow: isDragging ? '0 8px 30px rgba(49, 130, 206, 0.2)' : '0 4px 20px rgba(0, 0, 0, 0.08)',
+          transform: isDragging ? 'scale(1.02)' : 'scale(1)'
+        }}
+        onMouseEnter={(e) => {
+          if (!isDragging) {
+            e.currentTarget.style.borderColor = '#a0aec0';
+            e.currentTarget.style.boxShadow = '0 6px 25px rgba(0, 0, 0, 0.12)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isDragging) {
+            e.currentTarget.style.borderColor = '#cbd5e0';
+            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
+          }
         }}
       >
-        <div style={{ fontSize: '48px', marginBottom: '15px' }}>
+        <div style={{ 
+          fontSize: '4rem', 
+          marginBottom: '20px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: '96px',
+          height: '96px',
+          backgroundColor: isDragging ? '#3182ce' : '#f7fafc',
+          borderRadius: '24px',
+          margin: '0 auto 24px',
+          color: isDragging ? 'white' : '#4a5568',
+          transition: 'all 0.3s ease'
+        }}>
           {isDragging ? '📥' : '📊'}
         </div>
-        <h3 style={{ marginTop: 0, color: '#555', marginBottom: '15px' }}>
-          {isDragging ? 'ここにファイルをドロップ' : '各種データをアップロード'}
+        <h3 style={{ 
+          marginTop: 0, 
+          color: '#2d3748', 
+          marginBottom: '12px',
+          fontSize: '1.5rem',
+          fontWeight: '600',
+          letterSpacing: '-0.01em'
+        }}>
+          {isDragging ? 'ここにファイルをドロップ' : 'データファイルをアップロード'}
         </h3>
         
-        <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
+        <p style={{ 
+          fontSize: '1rem', 
+          color: '#4a5568', 
+          marginBottom: '32px',
+          lineHeight: '1.6',
+          maxWidth: '500px',
+          margin: '0 auto 32px'
+        }}>
           {selectedAnalysisType === 'document' ? 
-            '画像ファイル（JPG, PNG, PDF, WebP）をドラッグ&ドロップ、またはクリックして選択' :
-            'データファイル（CSV, Excel）をドラッグ&ドロップ、またはクリックして選択'
+            '領収書・請求書・レポート・名刺などの画像ファイルをアップロードしてAI分析を開始' :
+            'CSV・Excelファイルをアップロードして高度な売上分析・トレンド予測を実行'
           }
         </p>
         
@@ -1623,66 +1691,132 @@ ${dataTable}
         <label 
           htmlFor="file-input"
           style={{
-            display: 'inline-block',
-            padding: '10px 20px',
-            backgroundColor: '#007bff',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '16px 32px',
+            backgroundColor: '#3182ce',
             color: 'white',
-            borderRadius: '6px',
+            borderRadius: '12px',
             cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            transition: 'background-color 0.3s'
+            fontSize: '1.125rem',
+            fontWeight: '600',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 4px 14px rgba(49, 130, 206, 0.3)',
+            border: 'none',
+            letterSpacing: '-0.01em'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0056b3'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#007bff'}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#2c5282';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 20px rgba(49, 130, 206, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#3182ce';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(49, 130, 206, 0.3)';
+          }}
         >
-          ファイルを選択
+          <span style={{ fontSize: '1.25rem' }}>📁</span>
+          ファイルを選択してアップロード
         </label>
         
-        <p style={{ margin: '15px 0 0 0', fontSize: '12px', color: '#888' }}>
-          対応形式: CSV, Excel (.xlsx, .xls)
+        <div style={{ marginTop: '24px' }}>
+          <p style={{ 
+            margin: '0 0 16px 0', 
+            fontSize: '0.875rem', 
+            color: '#718096',
+            fontWeight: '500'
+          }}>
+            対応形式: {selectedAnalysisType === 'document' 
+              ? 'JPG, PNG, PDF, WebP (最大10MB)' 
+              : 'CSV, Excel (.xlsx, .xls) (最大5MB)'
+            }
+          </p>
           {isFileUploaded && (
-            <span style={{ 
-              display: 'block', 
-              marginTop: '10px',
-              color: '#28a745', 
-              fontWeight: 'bold',
-              fontSize: '14px'
+            <div style={{ 
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              backgroundColor: '#c6f6d5',
+              color: '#22543d',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '0.875rem',
+              fontWeight: '600',
+              border: '1px solid #9ae6b4'
             }}>
-              ✅ データアップロード済み
-            </span>
+              <span style={{ fontSize: '1rem' }}>✅</span>
+              データアップロード完了
+            </div>
           )}
-        </p>
+        </div>
       </div>
 
       <div style={{
-        marginBottom: '20px'
+        marginBottom: '48px',
+        padding: '32px',
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+        border: '1px solid #e8eef7'
       }}>
+        <h2 style={{ 
+          color: '#1a365d', 
+          marginBottom: '20px', 
+          fontSize: '1.5rem',
+          fontWeight: '600',
+          letterSpacing: '-0.01em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ 
+            backgroundColor: '#e6fffa', 
+            padding: '8px', 
+            borderRadius: '12px',
+            fontSize: '1.25rem'
+          }}>💬</span>
+          AIに質問・分析依頼
+        </h2>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder={isFileUploaded ? 
-            "売上データについて質問してください（例：売上トレンドを分析して、商品別の売上を分析して）" : 
-            "まず売上データをアップロードしてから質問してください"
+            "売上データについて質問してください\n\n例：\n• 売上トレンドを分析して詳しく教えて\n• 商品別の売上構成を教えて\n• 今月の売上予測を立てて" : 
+            "データファイルをアップロード後、AIに質問や分析依頼ができます"
           }
           style={{
             width: '100%',
-            minHeight: '120px',
-            padding: '12px',
-            fontSize: '16px',
-            border: '2px solid #ddd',
-            borderRadius: '8px',
+            minHeight: '140px',
+            padding: '20px',
+            fontSize: '1rem',
+            border: '2px solid #e2e8f0',
+            borderRadius: '12px',
             resize: 'vertical',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            fontFamily: '"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
+            lineHeight: '1.6',
+            backgroundColor: isFileUploaded ? '#ffffff' : '#f8fafc',
+            color: '#2d3748',
+            transition: 'all 0.3s ease',
+            outline: 'none'
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = '#3182ce';
+            e.currentTarget.style.boxShadow = '0 0 0 3px rgba(49, 130, 206, 0.1)';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = '#e2e8f0';
+            e.currentTarget.style.boxShadow = 'none';
           }}
           disabled={isLoading}
         />
         
-        {/* グラフ表示ボタンとプリセット質問 */}
+        {/* 主要操作ボタン */}
         {isFileUploaded && (
-          <div style={{ marginTop: '15px' }}>
-            {/* 大きなグラフ表示ボタン */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+          <div style={{ marginTop: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
               <button
                 onClick={() => {
                   console.log('📊 グラフ表示ボタンがクリックされました');
@@ -1702,22 +1836,35 @@ ${dataTable}
                   }
                 }}
                 style={{
-                  flex: 1,
-                  padding: '15px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  backgroundColor: '#28a745',
+                  padding: '16px 20px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  backgroundColor: '#38b2ac',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '12px',
                   cursor: 'pointer',
-                  transition: 'background-color 0.3s'
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 14px rgba(56, 178, 172, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#218838'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#28a745'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#319795';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(56, 178, 172, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#38b2ac';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(56, 178, 172, 0.3)';
+                }}
                 disabled={isLoading}
               >
-                📊 グラフを表示
+                <span style={{ fontSize: '1.25rem' }}>📊</span>
+                グラフ可視化
               </button>
               
               <button
@@ -1730,27 +1877,37 @@ ${dataTable}
                   }
                 }}
                 style={{
-                  flex: 1,
-                  padding: '15px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  backgroundColor: '#6c757d',
+                  padding: '16px 20px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  backgroundColor: '#4a5568',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '12px',
                   cursor: 'pointer',
-                  transition: 'background-color 0.3s'
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 14px rgba(74, 85, 104, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#545b62'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2d3748';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(74, 85, 104, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#4a5568';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(74, 85, 104, 0.3)';
+                }}
                 disabled={isLoading}
               >
-                📋 データテーブル{showDataTable ? '非表示' : '表示'}
+                <span style={{ fontSize: '1.25rem' }}>📋</span>
+                {showDataTable ? 'テーブル非表示' : 'テーブル表示'}
               </button>
-            </div>
-
-            {/* 学習ボタンを追加 */}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              
               <button
                 onClick={() => {
                   console.log('📚 データ学習ボタンがクリックされました');
@@ -1758,49 +1915,92 @@ ${dataTable}
                   setShowColumnMapping(true);
                 }}
                 style={{
-                  flex: 1,
-                  padding: '15px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  backgroundColor: '#dc3545',
+                  padding: '16px 20px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  backgroundColor: '#805ad5',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '12px',
                   cursor: 'pointer',
-                  transition: 'background-color 0.3s'
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 4px 14px rgba(128, 90, 213, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c82333'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#6b46c1';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(128, 90, 213, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#805ad5';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(128, 90, 213, 0.3)';
+                }}
                 disabled={isLoading}
               >
-                📚 データを学習
+                <span style={{ fontSize: '1.25rem' }}>📚</span>
+                データ学習
               </button>
             </div>
+
             
-            <p style={{ fontSize: '14px', color: '#555', margin: '5px 0' }}>AIに質問する：</p>
-            {[
-              '売上トレンドを分析して',
-              '商品別の売上を分析して',
-              '売上の季節性を分析して',
-              '売上予測をして'
-            ].map((question, index) => (
-              <button
-                key={index}
-                onClick={() => setPrompt(question)}
-                style={{
-                  margin: '5px 5px 5px 0',
-                  padding: '5px 10px',
-                  fontSize: '12px',
-                  backgroundColor: '#f8f9fa',
-                  border: '1px solid #ddd',
-                  borderRadius: '20px',
-                  cursor: 'pointer'
-                }}
-                disabled={isLoading}
-              >
-                {question}
-              </button>
-            ))}
+            <div style={{ marginTop: '20px' }}>
+              <h3 style={{ 
+                fontSize: '1rem', 
+                color: '#2d3748', 
+                margin: '0 0 12px 0',
+                fontWeight: '600'
+              }}>
+                よく使われる分析パターン
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {[
+                  { text: '売上トレンドを分析', icon: '📈' },
+                  { text: '商品別売上構成を分析', icon: '🍎' },
+                  { text: '季節性パターンを分析', icon: '🌱' },
+                  { text: '売上予測とKPI分析', icon: '🔮' }
+                ].map((question, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setPrompt(question.text + 'して詳しく教えてください')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      fontSize: '0.875rem',
+                      backgroundColor: '#f7fafc',
+                      border: '2px solid #e2e8f0',
+                      borderRadius: '24px',
+                      cursor: 'pointer',
+                      fontWeight: '500',
+                      color: '#4a5568',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#ebf8ff';
+                      e.currentTarget.style.borderColor = '#3182ce';
+                      e.currentTarget.style.color = '#2d3748';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f7fafc';
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.color = '#4a5568';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                    disabled={isLoading}
+                  >
+                    <span>{question.icon}</span>
+                    {question.text}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
