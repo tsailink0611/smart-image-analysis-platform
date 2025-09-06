@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://h6util56iwzeyadx6kbjyuakbi0zuucm.lambda-url.us-east-1.on.aws',
+        target: 'https://ylgrnwffx6.execute-api.us-east-1.amazonaws.com/prod',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }

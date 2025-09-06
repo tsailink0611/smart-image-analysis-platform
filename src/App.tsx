@@ -2036,7 +2036,7 @@ ${dataTable}
           }}
         />
       )}
-    </div>
+      </div>
     </SentryErrorBoundary>
   )
 }
