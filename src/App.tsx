@@ -2005,87 +2005,314 @@ ${dataTable}
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '10px' }}>
-        <div style={{ flex: 1 }}>
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading || !prompt.trim()}
-            style={{
-              width: '100%',
-              padding: '12px 24px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              color: 'white',
-              backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#007bff',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.3s'
-            }}
-          >
-            {isLoading ? '処理中...' : '💬 AIに質問する（テキスト形式）'}
-          </button>
-          <p style={{ 
-            margin: '5px 0 0 0', 
-            fontSize: '11px', 
-            color: '#666',
-            textAlign: 'center'
-          }}>
-            分析結果を文章で説明してほしいとき
-          </p>
-        </div>
+      <div style={{
+        marginBottom: '48px',
+        padding: '32px',
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+        border: '1px solid #e8eef7'
+      }}>
+        <h2 style={{ 
+          color: '#1a365d', 
+          marginBottom: '24px', 
+          fontSize: '1.5rem',
+          fontWeight: '600',
+          letterSpacing: '-0.01em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ 
+            backgroundColor: '#e6fffa', 
+            padding: '8px', 
+            borderRadius: '12px',
+            fontSize: '1.25rem'
+          }}>🚀</span>
+          AI分析実行
+        </h2>
         
-        <div style={{ flex: 1 }}>
-          <button
-            onClick={handleSubmitJSON}
-            disabled={isLoading || !prompt.trim()}
-            style={{
-              width: '100%',
-              padding: '12px 24px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              color: 'white',
-              backgroundColor: isLoading || !prompt.trim() ? '#ccc' : '#28a745',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.3s'
-            }}
-          >
-            📊 AIに質問する（データ形式）
-          </button>
-          <p style={{ 
-            margin: '5px 0 0 0', 
-            fontSize: '11px', 
-            color: '#666',
-            textAlign: 'center'
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+          <div style={{
+            padding: '24px',
+            backgroundColor: '#f8fafc',
+            borderRadius: '12px',
+            border: '2px solid #e2e8f0',
+            transition: 'all 0.3s ease'
           }}>
-            数値ベースの詳細な分析データが欲しいとき
-          </p>
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading || !prompt.trim()}
+              style={{
+                width: '100%',
+                padding: '16px 24px',
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: 'white',
+                backgroundColor: isLoading || !prompt.trim() ? '#a0aec0' : '#3182ce',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: isLoading || !prompt.trim() ? 'none' : '0 4px 14px rgba(49, 130, 206, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transform: isLoading ? 'none' : 'translateY(0)',
+                letterSpacing: '-0.01em'
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading && prompt.trim()) {
+                  e.currentTarget.style.backgroundColor = '#2c5282';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(49, 130, 206, 0.4)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading && prompt.trim()) {
+                  e.currentTarget.style.backgroundColor = '#3182ce';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(49, 130, 206, 0.3)';
+                }
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>
+                {isLoading ? '⏳' : '💬'}
+              </span>
+              {isLoading ? 'AI分析実行中...' : 'AI分析（文章レポート）'}
+            </button>
+            
+            <div style={{ 
+              marginTop: '16px',
+              padding: '12px',
+              backgroundColor: '#ebf8ff',
+              borderRadius: '8px',
+              border: '1px solid #bee3f8'
+            }}>
+              <p style={{ 
+                margin: 0, 
+                fontSize: '0.875rem', 
+                color: '#2d3748',
+                fontWeight: '500',
+                marginBottom: '4px'
+              }}>
+                📖 文章形式のレポート
+              </p>
+              <p style={{ 
+                margin: 0, 
+                fontSize: '0.8rem', 
+                color: '#4a5568',
+                lineHeight: '1.5'
+              }}>
+                AIが分析結果を理解しやすい文章で説明します。プレゼンテーションや報告書に最適です。
+              </p>
+            </div>
+          </div>
+          
+          <div style={{
+            padding: '24px',
+            backgroundColor: '#f0fff4',
+            borderRadius: '12px',
+            border: '2px solid #c6f6d5',
+            transition: 'all 0.3s ease'
+          }}>
+            <button
+              onClick={handleSubmitJSON}
+              disabled={isLoading || !prompt.trim()}
+              style={{
+                width: '100%',
+                padding: '16px 24px',
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: 'white',
+                backgroundColor: isLoading || !prompt.trim() ? '#a0aec0' : '#38a169',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: isLoading || !prompt.trim() ? 'none' : '0 4px 14px rgba(56, 161, 105, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transform: isLoading ? 'none' : 'translateY(0)',
+                letterSpacing: '-0.01em'
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading && prompt.trim()) {
+                  e.currentTarget.style.backgroundColor = '#2f855a';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(56, 161, 105, 0.4)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading && prompt.trim()) {
+                  e.currentTarget.style.backgroundColor = '#38a169';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(56, 161, 105, 0.3)';
+                }
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>
+                {isLoading ? '⏳' : '📊'}
+              </span>
+              {isLoading ? 'AI分析実行中...' : 'AI分析（データ詳細）'}
+            </button>
+            
+            <div style={{ 
+              marginTop: '16px',
+              padding: '12px',
+              backgroundColor: '#f0fff4',
+              borderRadius: '8px',
+              border: '1px solid #9ae6b4'
+            }}>
+              <p style={{ 
+                margin: 0, 
+                fontSize: '0.875rem', 
+                color: '#2d3748',
+                fontWeight: '500',
+                marginBottom: '4px'
+              }}>
+                📈 詳細データ分析
+              </p>
+              <p style={{ 
+                margin: 0, 
+                fontSize: '0.8rem', 
+                color: '#4a5568',
+                lineHeight: '1.5'
+              }}>
+                構造化されたデータと具体的な数値で分析結果を提供します。深い洞察が必要な場合に最適です。
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
       <div style={{
-        marginTop: '30px',
-        padding: '20px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '8px',
-        minHeight: '100px',
-        whiteSpace: 'pre-wrap'
+        padding: '32px',
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+        border: '1px solid #e8eef7',
+        minHeight: '200px'
       }}>
-        {isLoading ? (
-          <div style={{ color: '#666', fontStyle: 'italic' }}>
-            AIが応答を生成しています...
-          </div>
-        ) : response ? (
-          <div style={{ color: '#333', lineHeight: '1.6' }}>
-            {response}
-          </div>
-        ) : (
-          <div style={{ color: '#999', fontStyle: 'italic' }}>
-            AIの応答がここに表示されます
-          </div>
-        )}
+        <h2 style={{ 
+          color: '#1a365d', 
+          marginBottom: '24px', 
+          fontSize: '1.5rem',
+          fontWeight: '600',
+          letterSpacing: '-0.01em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ 
+            backgroundColor: '#e6fffa', 
+            padding: '8px', 
+            borderRadius: '12px',
+            fontSize: '1.25rem'
+          }}>📋</span>
+          分析結果・AI応答
+        </h2>
+        
+        <div style={{
+          padding: '24px',
+          backgroundColor: isLoading ? '#f7fafc' : (response ? '#ffffff' : '#fafafa'),
+          borderRadius: '12px',
+          border: isLoading ? '2px dashed #cbd5e0' : (response ? '2px solid #e2e8f0' : '2px dashed #e2e8f0'),
+          minHeight: '120px',
+          whiteSpace: 'pre-wrap',
+          fontFamily: '"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
+          fontSize: '1rem',
+          lineHeight: '1.7',
+          color: '#2d3748',
+          position: 'relative',
+          transition: 'all 0.3s ease'
+        }}>
+          {isLoading ? (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px',
+              color: '#4a5568',
+              fontSize: '1.125rem',
+              fontWeight: '500'
+            }}>
+              <div style={{
+                width: '24px',
+                height: '24px',
+                border: '3px solid #e2e8f0',
+                borderTop: '3px solid #3182ce',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              AIが高度な分析を実行しています...
+              <style>
+                {`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}
+              </style>
+            </div>
+          ) : response ? (
+            <div style={{ 
+              position: 'relative'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '-12px',
+                right: '-12px',
+                backgroundColor: '#38a169',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '0.75rem',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>
+                完了
+              </div>
+              {response}
+            </div>
+          ) : (
+            <div style={{ 
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '120px',
+              color: '#a0aec0',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '3rem',
+                marginBottom: '16px',
+                opacity: 0.6
+              }}>
+                🤖
+              </div>
+              <p style={{
+                margin: 0,
+                fontSize: '1.125rem',
+                fontWeight: '500',
+                marginBottom: '8px'
+              }}>
+                AI分析結果がここに表示されます
+              </p>
+              <p style={{
+                margin: 0,
+                fontSize: '0.875rem',
+                color: '#718096'
+              }}>
+                データをアップロードして質問を入力し、AI分析を開始してください
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* データテーブル表示セクション */}
