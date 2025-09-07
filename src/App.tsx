@@ -227,19 +227,22 @@ function App() {
 
   // 認証チェック（ページ読み込み時）
   useEffect(() => {
-    // デバッグ用：localStorageを強制クリア（一時的）
-    localStorage.removeItem('auth_user')
-    console.log('🔐 認証状態をリセット - ログイン画面を表示します')
+    console.log('🔐 認証状態をチェック中...')
     
     // 保存された認証情報を確認
     const savedUser = localStorage.getItem('auth_user')
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser))
+        const parsedUser = JSON.parse(savedUser)
+        setUser(parsedUser)
+        console.log('🔐 既存認証情報を復元:', parsedUser)
       } catch (error) {
         console.error('認証情報の読み込みエラー:', error)
         localStorage.removeItem('auth_user')
+        console.log('🔐 破損した認証情報を削除')
       }
+    } else {
+      console.log('🔐 認証情報が見つからないため、ログイン画面を表示')
     }
     setIsAuthenticating(false)
   }, [])
@@ -247,6 +250,8 @@ function App() {
   // ログイン処理
   const handleLogin = (loggedInUser: User) => {
     setUser(loggedInUser)
+    localStorage.setItem('auth_user', JSON.stringify(loggedInUser))
+    console.log('🔐 ログイン完了:', loggedInUser)
   }
 
   // ログアウト処理
