@@ -227,6 +227,10 @@ function App() {
 
   // 認証チェック（ページ読み込み時）
   useEffect(() => {
+    // デバッグ用：localStorageを強制クリア（一時的）
+    localStorage.removeItem('auth_user')
+    console.log('🔐 認証状態をリセット - ログイン画面を表示します')
+    
     // 保存された認証情報を確認
     const savedUser = localStorage.getItem('auth_user')
     if (savedUser) {
