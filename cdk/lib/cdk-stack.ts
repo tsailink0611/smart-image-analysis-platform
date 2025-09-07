@@ -139,6 +139,18 @@ export class CdkStack extends cdk.Stack {
       description: 'SAP data analysis and AI processing',
     });
 
+    // Lambda関数にBedrock権限を付与
+    analysisLambda.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'bedrock:InvokeModel',
+        'bedrock:InvokeModelWithResponseStream',
+        'bedrock:ListFoundationModels',
+        'bedrock:GetFoundationModel'
+      ],
+      resources: ['*'], // 全Bedrockモデルへのアクセス許可
+    }));
+
     // API Gateway リソースの設定（上記で定義済み）
 
     // API Gateway リソース
