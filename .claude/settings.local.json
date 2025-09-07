@@ -48,7 +48,11 @@
       "Bash(git checkout:*)",
       "Bash(gh workflow:*)",
       "Bash(npm run lint)",
-      "Bash(aws configure:*)"
+      "Bash(aws configure:*)",
+      "Bash(npx cdk synth:*)",
+      "Bash(/dev/null)",
+      "Bash(npx cdk bootstrap:*)",
+      "Bash(npx cdk deploy:*)"
     ],
     "deny": [],
     "ask": []
