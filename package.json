@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "build:vercel": "npm install && tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "echo 'No tests specified' && exit 0",
+    "test:build": "npm run build"
   },
   "dependencies": {
     "@sentry/react": "^10.8.0",
