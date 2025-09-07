@@ -208,7 +208,8 @@ describe('SAP Frontend CDK Stack Tests', () => {
     });
 
     // Lambda functions should have log retention set
-    template.resourceCountIs('AWS::Logs::LogGroup', Match.anyValue());
+    const logGroups = template.findResources('AWS::Logs::LogGroup');
+    expect(Object.keys(logGroups).length).toBeGreaterThan(0);
   });
 
   test('Cost Optimization', () => {
