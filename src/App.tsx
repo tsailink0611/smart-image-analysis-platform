@@ -227,23 +227,7 @@ function App() {
 
   // 認証チェック（ページ読み込み時）
   useEffect(() => {
-    // 開発環境では認証をスキップ
-    const isProduction = import.meta.env.PROD
-    if (!isProduction) {
-      // 開発用のデフォルトユーザー
-      const devUser: User = {
-        id: 'dev',
-        name: '開発者',
-        company: 'ローカル開発',
-        usageCount: 0,
-        usageLimit: 999
-      }
-      setUser(devUser)
-      setIsAuthenticating(false)
-      return
-    }
-
-    // 本番環境では通常の認証処理
+    // 保存された認証情報を確認
     const savedUser = localStorage.getItem('auth_user')
     if (savedUser) {
       try {
@@ -1007,6 +991,12 @@ function App() {
   const handleSubmitJSON = async () => {
     if (!prompt.trim()) return;
 
+    // 利用制限チェック
+    if (user && user.usageCount >= user.usageLimit) {
+      setResponse(`❌ 利用制限に達しました。\n\n利用可能回数: ${user.usageLimit}回\n現在の使用回数: ${user.usageCount}回\n\n追加利用をご希望の場合は管理者にお問い合わせください。`);
+      return;
+    }
+
     setIsLoadingJSON(true);     // ← JSON用ローディング状態
     setResponse('');            // 既存表示のクリア
 
@@ -1032,6 +1022,13 @@ function App() {
       // 画面用（上部のテキスト）
       setResponse(stringifyForDisplay(res));
 
+      // 使用回数を更新
+      if (user) {
+        const updatedUser = { ...user, usageCount: user.usageCount + 1 };
+        setUser(updatedUser);
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      }
+
       // 開発者ログ（Consoleで中身を見やすく）
       console.log('API応答(JSON):', { summary, total, res });
     } catch (err: any) {
@@ -1045,6 +1042,12 @@ function App() {
 
   const handleSubmit = async () => {
     if (!prompt.trim()) return
+
+    // 利用制限チェック
+    if (user && user.usageCount >= user.usageLimit) {
+      setResponse(`❌ 利用制限に達しました。\n\n利用可能回数: ${user.usageLimit}回\n現在の使用回数: ${user.usageCount}回\n\n追加利用をご希望の場合は管理者にお問い合わせください。`);
+      return;
+    }
 
     setIsLoading(true)
     setResponse('')
@@ -1201,6 +1204,13 @@ ${dataTable}
       console.log('🚀 API応答:', result.data);
       const payload = result.data;
       setResponse(typeof payload === 'string' ? payload : stringifyForDisplay(payload))
+
+      // 使用回数を更新
+      if (user) {
+        const updatedUser = { ...user, usageCount: user.usageCount + 1 };
+        setUser(updatedUser);
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+      }
     } catch (error: any) {
       console.error('❌ API Error詳細:', error);
       console.error('❌ Error Config:', error.config);
