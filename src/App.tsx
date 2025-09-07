@@ -212,6 +212,7 @@ function App() {
   const [prompt, setPrompt] = useState('')
   const [response, setResponse] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingJSON, setIsLoadingJSON] = useState(false)
   const [salesData, setSalesData] = useState<SalesData[]>([])
   const [isFileUploaded, setIsFileUploaded] = useState(false)
   const [showCharts, setShowCharts] = useState(false)
@@ -1006,7 +1007,7 @@ function App() {
   const handleSubmitJSON = async () => {
     if (!prompt.trim()) return;
 
-    setIsLoading(true);         // ← 「AIが生成中」表示ON
+    setIsLoadingJSON(true);     // ← JSON用ローディング状態
     setResponse('');            // 既存表示のクリア
 
     try {
@@ -1038,7 +1039,7 @@ function App() {
       setResponse(`JSONエラー: ${msg}`);
       console.error('JSON送信エラー:', err);
     } finally {
-      setIsLoading(false);      // ← ここが大事。「AIが生成中」を必ずOFF
+      setIsLoadingJSON(false);  // ← JSON用ローディング状態をOFF
     }
   };
 
@@ -2119,19 +2120,19 @@ ${dataTable}
           }}>
             <button
               onClick={handleSubmitJSON}
-              disabled={isLoading || !prompt.trim()}
+              disabled={isLoadingJSON || !prompt.trim()}
               style={{
                 width: '100%',
                 padding: '16px 24px',
                 fontSize: '1.125rem',
                 fontWeight: '600',
                 color: 'white',
-                backgroundColor: isLoading || !prompt.trim() ? '#a0aec0' : '#38a169',
+                backgroundColor: isLoadingJSON || !prompt.trim() ? '#a0aec0' : '#38a169',
                 border: 'none',
                 borderRadius: '12px',
                 cursor: isLoading || !prompt.trim() ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease',
-                boxShadow: isLoading || !prompt.trim() ? 'none' : '0 4px 14px rgba(56, 161, 105, 0.3)',
+                boxShadow: isLoadingJSON || !prompt.trim() ? 'none' : '0 4px 14px rgba(56, 161, 105, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -2155,9 +2156,9 @@ ${dataTable}
               }}
             >
               <span style={{ fontSize: '1.25rem' }}>
-                {isLoading ? '⏳' : '📊'}
+                {isLoadingJSON ? '⏳' : '📊'}
               </span>
-              {isLoading ? 'AI分析実行中...' : 'AI分析（データ詳細）'}
+              {isLoadingJSON ? 'AI分析実行中...' : 'AI分析（データ詳細）'}
             </button>
             
             <div style={{ 
