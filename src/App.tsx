@@ -412,7 +412,7 @@ function App() {
       console.log(`行${index} の全データ:`, allValues);
       
       // 日付の取得（曜日列も含む）
-      let dateValue = row[dateCol];
+      const dateValue = row[dateCol];
       
       // 日付が曜日の場合、インデックスを使用
       const dayOfWeeks = ['日', '月', '火', '水', '木', '金', '土'];
@@ -771,7 +771,7 @@ function App() {
           // 複数行ヘッダーに対応したヘッダー行検出（改善版）
           let headerRowIndex = 0;
           let headers: string[] = [];
-          let multiHeaders: string[][] = [];
+          const multiHeaders: string[][] = [];
           
           // マルチヘッダーを検出（最初の行が「売上」のような大項目の可能性）
           let firstRowHasMainHeader = false;
