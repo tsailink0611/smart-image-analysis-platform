@@ -52,7 +52,8 @@
       "Bash(npx cdk synth:*)",
       "Bash(/dev/null)",
       "Bash(npx cdk bootstrap:*)",
-      "Bash(npx cdk deploy:*)"
+      "Bash(npx cdk deploy:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": [],
     "ask": []
