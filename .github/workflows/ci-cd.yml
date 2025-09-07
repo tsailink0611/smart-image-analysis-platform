@@ -33,7 +33,12 @@ jobs:
         run: npm test
 
       - name: 📊 Lint Check
-        run: npm run lint || echo "⚠️ Lint warnings found but continuing..."
+        run: |
+          npm run lint || {
+            echo "⚠️ ESLint errors/warnings found but continuing CI/CD pipeline..."
+            echo "Please review and fix ESLint issues in future commits"
+            exit 0
+          }
 
       - name: 🏗️ Build Check
         run: npm run build
