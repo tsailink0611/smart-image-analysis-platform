@@ -47,7 +47,8 @@
       "Bash(aws amplify list-jobs:*)",
       "Bash(git checkout:*)",
       "Bash(gh workflow:*)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(aws configure:*)"
     ],
     "deny": [],
     "ask": []
