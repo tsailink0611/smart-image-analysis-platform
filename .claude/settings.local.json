@@ -53,7 +53,8 @@
       "Bash(/dev/null)",
       "Bash(npx cdk bootstrap:*)",
       "Bash(npx cdk deploy:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Read(//c/Users/tsail/Desktop/スクリーンショット/**)"
     ],
     "deny": [],
     "ask": []
