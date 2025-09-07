@@ -46,7 +46,8 @@
       "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)",
       "Bash(aws amplify list-jobs:*)",
       "Bash(git checkout:*)",
-      "Bash(gh workflow:*)"
+      "Bash(gh workflow:*)",
+      "Bash(npm run lint)"
     ],
     "deny": [],
     "ask": []
