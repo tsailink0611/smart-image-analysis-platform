@@ -5,6 +5,7 @@ on:
     branches: [ develop, staging, main ]
   pull_request:
     branches: [ main, staging ]
+  workflow_dispatch:  # 手動実行を許可
 
 env:
   NODE_VERSION: '18'

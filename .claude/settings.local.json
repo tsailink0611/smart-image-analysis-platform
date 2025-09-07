@@ -45,7 +45,8 @@
       "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)",
       "Read(c:\\Users\\tsail\\Desktop\\スクリーンショット/**)",
       "Bash(aws amplify list-jobs:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(gh workflow:*)"
     ],
     "deny": [],
     "ask": []
