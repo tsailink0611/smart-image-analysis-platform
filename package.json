@@ -14,7 +14,14 @@
     "setup": "node scripts/setup.js",
     "setup:unix": "chmod +x setup.sh && ./setup.sh",
     "setup:windows": "powershell -ExecutionPolicy Bypass -File setup.ps1",
-    "postinstall": "node scripts/post-install.js"
+    "postinstall": "node scripts/post-install.js",
+    "env:sync": "node scripts/env-manager.js sync",
+    "env:check": "node scripts/env-manager.js check",
+    "env:validate": "node scripts/env-manager.js validate",
+    "env:backup": "node scripts/env-manager.js backup",
+    "env:team": "node scripts/env-manager.js team",
+    "env:update": "node scripts/env-manager.js update",
+    "env:all": "node scripts/env-manager.js all"
   },
   "dependencies": {
     "@sentry/react": "^10.8.0",

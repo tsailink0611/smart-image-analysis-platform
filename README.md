@@ -2,6 +2,34 @@
 
 Enterprise-grade sales data analysis platform with AI-powered insights using AWS Bedrock and Claude.
 
+## 🚨 **完全復旧可能システム** 🚨
+### ✅ **プロジェクト完全削除OK - GitHubから完全復元可能**
+
+**パソコンが壊れても大丈夫！** このプロジェクトフォルダを完全削除しても、以下の手順で100%復元できます：
+
+```bash
+# 1. GitHubからクローン
+git clone https://github.com/your-username/sap-project-frontend.git
+cd sap-project-frontend
+
+# 2. 自動セットアップ実行（これだけでOK！）
+npm run setup
+
+# 3. 環境変数の値を実際の値に変更（チームリーダーから取得）
+# .envファイルを編集してSupabase/AWS認証情報を設定
+
+# 4. 開発開始
+npm run dev
+```
+
+**💡 環境変数も自動管理：**
+- `npm run env:sync` - 新しい環境変数を自動的に.env.exampleに追加
+- `npm run env:check` - 環境変数の整合性チェック  
+- `npm run env:backup` - 暗号化バックアップ作成
+- 災害時も完全復旧可能！
+
+---
+
 ## 🏗️ Architecture Overview
 
 - **Frontend**: React + TypeScript + Vite (deployed on AWS Amplify)
