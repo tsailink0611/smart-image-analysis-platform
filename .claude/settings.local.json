@@ -56,7 +56,8 @@
       "Bash(npx eslint:*)",
       "Read(//c/Users/tsail/Desktop/スクリーンショット/**)",
       "Bash(git merge:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(npx cdk outputs:*)"
     ],
     "deny": [],
     "ask": []

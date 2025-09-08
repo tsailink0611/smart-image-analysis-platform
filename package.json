@@ -10,7 +10,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "echo 'No tests specified' && exit 0",
-    "test:build": "npm run build"
+    "test:build": "npm run build",
+    "setup": "node scripts/setup.js",
+    "setup:unix": "chmod +x setup.sh && ./setup.sh",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File setup.ps1",
+    "postinstall": "node scripts/post-install.js"
   },
   "dependencies": {
     "@sentry/react": "^10.8.0",
