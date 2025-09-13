@@ -113,19 +113,17 @@ function App() {
           </div>
 
           {/* Analysis Configuration */}
-          {uploadedFile && (
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <span className="text-2xl mr-3">⚙️</span>
-                分析設定
-              </h2>
-              <DocumentAnalysis 
-                onStartAnalysis={(instruction) => handleAnalysisStart('custom', instruction)}
-                isAnalyzing={status === 'processing'}
-                hasFile={!!uploadedFile}
-              />
-            </div>
-          )}
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+              <span className="text-2xl mr-3">⚙️</span>
+              分析設定
+            </h2>
+            <DocumentAnalysis 
+              onStartAnalysis={(instruction) => handleAnalysisStart('custom', instruction)}
+              isAnalyzing={status === 'processing'}
+              hasFile={!!uploadedFile}
+            />
+          </div>
 
           {/* Results Section */}
           {(status === 'processing' || result) && (
