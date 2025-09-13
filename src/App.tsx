@@ -34,6 +34,7 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          prompt: instructions || 'この画像・文書を詳細に分析してください。',
           image: uploadedFile.base64Data,
           analysisType: type,
           customInstructions: instructions,
