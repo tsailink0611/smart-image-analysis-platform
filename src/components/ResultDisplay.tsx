@@ -149,12 +149,12 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, isLoading }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <dt className="font-medium text-gray-600">ファイルサイズ</dt>
-                <dd className="text-gray-800">{(result.metadata.fileSize / 1024).toFixed(1)} KB</dd>
+                <dd className="text-gray-800">{result.metadata.fileSize ? (result.metadata.fileSize / 1024).toFixed(1) : '不明'} KB</dd>
               </div>
               
               <div className="bg-gray-50 p-4 rounded-lg">
                 <dt className="font-medium text-gray-600">ファイル形式</dt>
-                <dd className="text-gray-800">{result.metadata.fileType}</dd>
+                <dd className="text-gray-800">{result.metadata.fileType || '不明'}</dd>
               </div>
 
               {result.metadata.dimensions && (
