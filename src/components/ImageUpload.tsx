@@ -42,10 +42,14 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onFileUploaded, isAnalyzing }
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.target.value = '' // ファイル選択をリセット
     const file = e.target.files?.[0]
     if (file) {
+      console.log('File selected:', file.name, file.type, file.size)
       handleFileSelect(file)
+    }
+    // Reset input after processing
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
   }
 
@@ -80,15 +84,21 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onFileUploaded, isAnalyzing }
     <div className="space-y-4">
       {!uploadedFile ? (
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
             isDragOver
               ? 'border-blue-500 bg-blue-50'
               : 'border-gray-300 hover:border-gray-400'
-          } ${isAnalyzing ? 'opacity-50 pointer-events-none' : ''}`}
+          } ${isAnalyzing ? 'opacity-50 pointer-events-none' : 'hover:bg-gray-50'}`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={(e) => {
+            e.preventDefault()
+            console.log('Upload area clicked')
+            if (!isAnalyzing && fileInputRef.current) {
+              fileInputRef.current.click()
+            }
+          }}
         >
           <div className="space-y-4">
             <div className="text-6xl text-gray-400">📁</div>
@@ -108,10 +118,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onFileUploaded, isAnalyzing }
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,.pdf"
+            accept="image/*,.pdf,image/webp,image/bmp,image/tiff"
             onChange={handleInputChange}
             className="hidden"
             disabled={isAnalyzing}
+            multiple={false}
           />
         </div>
       ) : (
