@@ -4,7 +4,7 @@ import DocumentAnalysis from './components/DocumentAnalysis'
 import ResultDisplay from './components/ResultDisplay'
 import { UploadedFile, ImageAnalysisResult, AnalysisStatus } from './types'
 
-const API_ENDPOINT = '/api/analysis'
+const API_ENDPOINT = 'https://xjdptisw6rva3ftfh3sfgueuye0bfnlq.lambda-url.us-east-1.on.aws/'
 
 function App() {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)
@@ -20,12 +20,34 @@ function App() {
   }
 
   const handleAnalysisStart = async (type: string, instructions: string) => {
-    if (!uploadedFile) return
+    console.log('Analysis start called with:', { type, instructions, uploadedFile })
+
+    if (!uploadedFile) {
+      console.error('No file uploaded!')
+      alert('画像ファイルをアップロードしてください')
+      return
+    }
+
+    console.log('Starting analysis with file:', uploadedFile.file.name, uploadedFile.file.size)
+    console.log('Base64 data length:', uploadedFile.base64Data.length)
 
     setAnalysisType(type)
     setCustomInstructions(instructions)
     setStatus('processing')
     setResult(null)
+
+    const requestBody = {
+      prompt: instructions || 'この画像・文書を詳細に分析してください。',
+      image_data: uploadedFile.base64Data.split(',')[1] || uploadedFile.base64Data,
+      analysisType: type,
+      customInstructions: instructions,
+      filename: uploadedFile.file.name,
+      fileSize: uploadedFile.file.size,
+      fileType: 'image',
+      mimeType: uploadedFile.file.type,
+    }
+
+    console.log('Request body size:', JSON.stringify(requestBody).length)
 
     try {
       const response = await fetch(API_ENDPOINT, {
@@ -33,15 +55,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          prompt: instructions || 'この画像・文書を詳細に分析してください。',
-          image: uploadedFile.base64Data,
-          analysisType: type,
-          customInstructions: instructions,
-          filename: uploadedFile.file.name,
-          fileSize: uploadedFile.file.size,
-          fileType: uploadedFile.file.type,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
@@ -49,11 +63,11 @@ function App() {
       }
 
       const analysisResult = await response.json()
-      
+
       setResult({
-        extractedText: analysisResult.extractedText || '',
-        confidence: analysisResult.confidence || 0,
-        analysis: analysisResult.analysis || '',
+        extractedText: analysisResult.result || analysisResult.extractedText || '',
+        confidence: analysisResult.confidence || 95,
+        analysis: analysisResult.result || analysisResult.analysis || '',
         metadata: {
           fileSize: uploadedFile.file.size,
           fileType: uploadedFile.file.type,
