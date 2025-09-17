@@ -690,6 +690,55 @@ def _get_analysis_instructions(data_type: str) -> str:
     }
     return instructions.get(data_type, instructions["financial_data"])
 
+def _bedrock_converse_with_image(model_id: str, region: str, prompt: str, image_data: str, mime_type: str) -> str:
+    """Claude Vision APIで画像を分析"""
+    client = boto3.client("bedrock-runtime", region_name=region)
+
+    # システムプロンプト
+    system_ja = [{
+        "text": """あなたは高度な画像分析とビジネスインテリジェンスの専門家です。
+画像から情報を正確に抽出し、実用的なビジネス洞察を提供してください。
+数値データは正確に読み取り、傾向やパターンを分析してください。
+日本語で分かりやすく、具体的な提案を含めて回答してください。"""
+    }]
+
+    # メッセージに画像を含める
+    messages = [{
+        "role": "user",
+        "content": [
+            {
+                "text": prompt
+            },
+            {
+                "image": {
+                    "format": mime_type.split('/')[-1] if '/' in mime_type else "jpeg",
+                    "source": {
+                        "bytes": base64.b64decode(image_data)
+                    }
+                }
+            }
+        ]
+    }]
+
+    try:
+        resp = client.converse(
+            modelId=model_id,
+            system=system_ja,
+            messages=messages,
+            inferenceConfig={"maxTokens": MAX_TOKENS, "temperature": TEMPERATURE}
+        )
+
+        msg = resp.get("output", {}).get("message", {})
+        parts = msg.get("content", [])
+        txts = []
+        for p in parts:
+            if "text" in p:
+                txts.append(p["text"])
+        return "\n".join([t for t in txts if t]).strip()
+    except Exception as e:
+        logger.error(f"Bedrock Vision API error: {str(e)}")
+        raise
+
 def _bedrock_converse(model_id: str, region: str, prompt: str) -> str:
     client = boto3.client("bedrock-runtime", region_name=region)
     system_ja = [{
@@ -768,61 +817,45 @@ def _process_image_with_textract(image_data: str, mime_type: str) -> str:
         return f"テキスト抽出エラー: {str(e)}"
 
 def _analyze_document_image(image_data: str, mime_type: str, analysis_type: str) -> str:
-    """画像書類を分析してビジネス分析を実行"""
+    """画像書類を分析してビジネス分析を実行（Claude Vision API使用）"""
     try:
-        # Textractでテキスト抽出
-        extracted_text = _process_image_with_textract(image_data, mime_type)
-        
-        if "エラー" in extracted_text:
-            return extracted_text
-            
-        # 抽出されたテキストの種類を判定
-        document_type = "不明な書類"
-        if any(keyword in extracted_text for keyword in ["領収書", "レシート", "receipt"]):
-            document_type = "領収書・レシート"
-        elif any(keyword in extracted_text for keyword in ["請求書", "invoice", "bill"]):
-            document_type = "請求書"
-        elif any(keyword in extracted_text for keyword in ["名刺", "business card"]):
-            document_type = "名刺"
-        elif any(keyword in extracted_text for keyword in ["報告書", "レポート", "report"]):
-            document_type = "報告書・レポート"
-            
-        # AI分析用プロンプト作成
-        prompt = f"""
-以下の{document_type}の内容を分析し、ビジネス上の洞察を提供してください：
+        # Claude Vision APIで直接画像分析
+        prompt = """この画像を詳細に分析してください。以下の観点で分析してください：
 
-【抽出されたテキスト】
-{extracted_text}
+1. **画像内容の識別**
+   - 何の画像か（文書、グラフ、表、写真など）
+   - 主要な要素や情報
 
-【分析観点】
-1. 書類の種類と内容の概要
-2. 重要な数値・金額・日付の特定
-3. ビジネス上の意味と活用可能な情報
-4. 改善提案・注意点（該当する場合）
-5. データ入力・管理上の推奨事項
+2. **テキスト情報の抽出**
+   - 画像内のすべてのテキストを正確に読み取り
+   - 数値、日付、名称などの重要情報を特定
 
-日本語で分かりやすく分析結果を提供してください。
-"""
-        
-        # Bedrockで分析実行
-        analysis_result = _bedrock_converse(MODEL_ID, REGION, prompt)
-        
-        return f"""📄 **書類画像分析結果**
+3. **データ分析**
+   - 表やグラフがある場合は、データの傾向やパターンを分析
+   - 重要な指標やKPIを特定
 
-**書類種類**: {document_type}
+4. **ビジネス洞察**
+   - この情報から得られるビジネス上の示唆
+   - 改善点や注意すべき点
+   - 活用可能な情報やアクションアイテム
 
-**AI分析結果**:
+5. **推奨事項**
+   - データ管理や活用に関する提案
+   - 次のステップの推奨
+
+日本語で詳細かつ実用的な分析結果を提供してください。"""
+
+        # Claude Vision APIで画像を直接分析
+        analysis_result = _bedrock_converse_with_image(MODEL_ID, REGION, prompt, image_data, mime_type)
+
+        return f"""📊 **画像分析結果**
+
 {analysis_result}
+"""
 
----
-**抽出された元テキスト**:
-```
-{extracted_text}
-```"""
-        
     except Exception as e:
         logger.error(f"Document image analysis error: {str(e)}")
-        return f"書類画像分析エラー: {str(e)}"
+        return f"画像分析エラー: {str(e)}"
 
 # ====== LINE Notify & Sentry Webhook処理 ======
 def send_line_notification(message: str) -> bool:

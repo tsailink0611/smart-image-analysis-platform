@@ -4,7 +4,7 @@ import DocumentAnalysis from './components/DocumentAnalysis'
 import ResultDisplay from './components/ResultDisplay'
 import { UploadedFile, ImageAnalysisResult, AnalysisStatus } from './types'
 
-const API_ENDPOINT = 'https://xjdptisw6rva3ftfh3sfgueuye0bfnlq.lambda-url.us-east-1.on.aws/'
+const API_ENDPOINT = 'https://rzddt4m5k6mllt2kkl7xa7rokm0urcjs.lambda-url.us-east-1.on.aws/'
 
 function App() {
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)

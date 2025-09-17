@@ -57,7 +57,15 @@
       "Read(//c/Users/tsail/Desktop/スクリーンショット/**)",
       "Bash(git merge:*)",
       "Bash(git tag:*)",
-      "Bash(npx cdk outputs:*)"
+      "Bash(npx cdk outputs:*)",
+      "Bash(aws logs describe-log-streams:*)",
+      "Bash(aws lambda get-function-url-config:*)",
+      "Bash(aws lambda list-functions:*)",
+      "Bash(aws lambda invoke:*)",
+      "Bash(cat:*)",
+      "Bash(aws lambda get-function:*)",
+      "Bash(aws:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

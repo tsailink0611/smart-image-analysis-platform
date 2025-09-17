@@ -1,200 +1,126 @@
-# Strategic AI Platform - SAP Sales Analysis
+# Smart Image Analysis Platform
 
-Enterprise-grade sales data analysis platform with AI-powered insights using AWS Bedrock and Claude.
+An AI-powered platform for analyzing images and documents using Claude Vision API with advanced OCR and business intelligence capabilities.
 
-## 🚨 **完全復旧可能システム** 🚨
-### ✅ **プロジェクト完全削除OK - GitHubから完全復元可能**
+## Features
 
-**パソコンが壊れても大丈夫！** このプロジェクトフォルダを完全削除しても、以下の手順で100%復元できます：
+- **AI Image Analysis**: Upload images/documents for detailed Claude Vision analysis
+- **OCR & Text Extraction**: Automatically extract text from images and PDFs
+- **Business Intelligence**: Get actionable insights from charts, graphs, and documents
+- **Multi-format Support**: Supports PNG, JPG, PDF, WebP, BMP, TIFF formats
+- **Real-time Processing**: Instant analysis with Claude 3 Sonnet
+- **Detailed Reports**: Comprehensive analysis with business recommendations
 
+## Technology Stack
+
+- **Frontend**: React + TypeScript + Vite
+- **AI Processing**: Claude 3 Sonnet via AWS Bedrock
+- **Backend**: AWS Lambda Function URL
+- **Image Processing**: Claude Vision API
+- **Deployment**: Local development + AWS Lambda
+
+## Quick Start
+
+### Prerequisites
+- Node.js 18+
+- AWS CLI configured with Bedrock access
+
+### Development Setup
+
+1. **Clone and install dependencies**
 ```bash
-# 1. GitHubからクローン
-git clone https://github.com/your-username/sap-project-frontend.git
-cd sap-project-frontend
+npm install
+```
 
-# 2. 自動セットアップ実行（これだけでOK！）
-npm run setup
-
-# 3. 環境変数の値を実際の値に変更（チームリーダーから取得）
-# .envファイルを編集してSupabase/AWS認証情報を設定
-
-# 4. 開発開始
+2. **Start development server**
+```bash
 npm run dev
 ```
 
-**💡 環境変数も自動管理：**
-- `npm run env:sync` - 新しい環境変数を自動的に.env.exampleに追加
-- `npm run env:check` - 環境変数の整合性チェック  
-- `npm run env:backup` - 暗号化バックアップ作成
-- 災害時も完全復旧可能！
+3. **Access the application**
+```
+http://localhost:5173
+```
+
+## Usage
+
+1. **Upload Image**: Drag & drop or click to select an image file
+2. **Choose Analysis Type**: Select from predefined analysis options
+3. **Add Custom Instructions**: Provide specific analysis requirements
+4. **Start Analysis**: Click "AI分析を開始" to process the image
+5. **Review Results**: Get detailed analysis with business insights
+
+## API Configuration
+
+The platform uses AWS Lambda for backend processing:
+
+**Lambda Function**: `smart-image-analyzer`
+**Function URL**: `https://rzddt4m5k6mllt2kkl7xa7rokm0urcjs.lambda-url.us-east-1.on.aws/`
+
+## Environment Setup
+
+Required environment variables for Lambda function:
+```bash
+BEDROCK_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
+BEDROCK_REGION=us-east-1
+MAX_TOKENS=1500
+TEMPERATURE=0.2
+```
+
+## Project Structure
+
+```
+smart-image-analysis-platform/
+├── src/
+│   ├── components/
+│   │   ├── ImageUpload.tsx       # File upload component
+│   │   ├── DocumentAnalysis.tsx  # Analysis configuration
+│   │   └── ResultDisplay.tsx     # Results visualization
+│   ├── types/                    # TypeScript definitions
+│   └── App.tsx                   # Main application
+├── image_analyzer.py             # Lambda function code
+└── vite.config.ts               # Build configuration
+```
+
+## Lambda Function
+
+The `smart-image-analyzer` Lambda function:
+- Receives base64-encoded images
+- Processes them with Claude Vision API
+- Returns detailed analysis results
+- Handles CORS for web integration
+
+## Development Commands
+
+```bash
+# Development
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+
+# Lambda Deployment
+aws lambda update-function-code --function-name smart-image-analyzer --zip-file fileb://smart-image-analyzer.zip
+```
+
+## Supported Image Formats
+
+- PNG, JPG, JPEG
+- PDF documents
+- WebP, BMP, TIFF
+- Maximum file size: 10MB
+
+## Analysis Capabilities
+
+- **Text Extraction**: OCR from images and documents
+- **Data Analysis**: Charts, graphs, and numerical data interpretation
+- **Business Intelligence**: Strategic insights and recommendations
+- **Document Processing**: Receipts, invoices, reports analysis
+- **Visual Content**: Image content description and analysis
+
+## License
+
+This project is for demonstration purposes.
 
 ---
 
-## 🏗️ Architecture Overview
-
-- **Frontend**: React + TypeScript + Vite (deployed on AWS Amplify)
-- **Backend**: AWS Lambda Function with Claude 3 Sonnet via Bedrock
-- **Data Processing**: Pandas for CSV analysis with auto-detection
-- **API**: Lambda Function URL with CORS support
-
-## 📁 Project Structure (SSOT - Single Source of Truth)
-
-```
-├── src/                          # Frontend React application
-├── lambda/
-│   ├── sap-claude-handler/       # 🎯 SSOT: Main Lambda function
-│   │   └── lambda_function.py    # Primary handler (unified)
-│   ├── format-learning-handler.py # Human-in-the-loop format learning
-│   ├── requirements.txt          # Python dependencies
-│   └── archive/                  # Legacy handler versions
-├── deployment-config.json        # Lambda deployment configuration
-├── deploy.sh                     # Unix deployment script
-├── deploy-windows.ps1            # Windows deployment script
-└── README.md                     # This file
-```
-
-## 🚀 Quick Start
-
-### 1. Frontend Development
-```bash
-npm install
-npm run dev
-```
-
-### 2. Lambda Deployment (SSOT)
-
-#### Using Unix/Linux/macOS:
-```bash
-./deploy.sh
-```
-
-#### Using Windows PowerShell:
-```powershell
-.\deploy-windows.ps1
-```
-
-#### Manual AWS CLI Deployment:
-```bash
-# Package and deploy the SSOT Lambda function
-cd lambda
-zip -r sap-claude-handler.zip sap-claude-handler/lambda_function.py requirements.txt
-
-# Upload to existing Lambda function
-aws lambda update-function-code \
-  --function-name sap-claude-handler \
-  --zip-file fileb://sap-claude-handler.zip
-
-# Set environment variables
-aws lambda update-function-configuration \
-  --function-name sap-claude-handler \
-  --environment Variables='{
-    "USE_CLAUDE_API":"true",
-    "BEDROCK_MODEL_ID":"anthropic.claude-3-sonnet-20240229-v1:0",
-    "LAMBDA_DEBUG_ECHO":"0",
-    "BUILD_ID":"ssot-v1"
-  }'
-```
-
-## 🔧 Configuration
-
-### Environment Variables (Lambda)
-- `USE_CLAUDE_API`: Enable/disable real AI analysis (`true`/`false`)
-- `BEDROCK_MODEL_ID`: Model identifier (default: `us.deepseek.r1-v1:0`)
-- `LAMBDA_DEBUG_ECHO`: Debug mode for payload inspection (`0`/`1`)
-- `BUILD_ID`: Build identifier for tracking
-- `FORCE_JA`: Force Japanese output regardless of instruction (`true`/`false`)
-- `TEMPERATURE`: Model temperature (default: `0.15` for stability)
-- `MAX_TOKENS`: Maximum response tokens (default: `2000`)
-- `DEFAULT_FORMAT`: Default response format (`json`/`markdown`/`text`)
-
-### Frontend Environment
-```bash
-# .env.production
-VITE_API_ENDPOINT=/api/analysis
-```
-
-## 📊 Supported Data Formats
-
-The SSOT Lambda function auto-detects various input formats:
-
-**Array Data** (priority order):
-- `rows`, `dataRows`, `records`, `table`, `data`, `salesData`
-
-**CSV Text** (priority order):
-- `csv`, `fileContent`, `input`, `text`, `content`, `csvData`
-
-## 🐛 Debug Mode
-
-Enable debug mode to inspect raw payloads:
-
-**Environment Variable:**
-```bash
-LAMBDA_DEBUG_ECHO=1
-```
-
-**Query Parameter:**
-```
-POST /api/analysis?echo=1
-```
-
-## 📦 Deployment Process
-
-1. **Source Control**: All changes made to `lambda/sap-claude-handler/lambda_function.py`
-2. **Manual Upload**: Copy code to AWS Console (GitHub integration pending)
-3. **Testing**: Use debug mode to verify data reception
-4. **Monitoring**: Check CloudWatch logs for issues
-
-## 🏛️ SSOT Migration
-
-The project has been refactored to use a Single Source of Truth architecture:
-
-- **Active**: `lambda/sap-claude-handler/lambda_function.py`
-- **Archived**: All previous handler versions moved to `lambda/archive/`
-- **Unified**: All features consolidated into one function
-
-## 📈 Features
-
-- **Flexible Input**: Auto-detects various CSV and JSON formats
-- **AI Analysis**: Comprehensive sales analysis using DeepSeek R1
-- **Japanese Output**: System message + prompt enforcement for consistent Japanese responses
-- **Multi-Format**: JSON/Markdown/Text response formats via `responseFormat` field
-- **Debug Tools**: Payload inspection and debugging capabilities
-- **CORS Support**: Full CORS headers for frontend integration
-- **Error Handling**: Comprehensive error handling and logging
-
-## 🔗 External Dependencies
-
-- AWS Bedrock (DeepSeek R1: `us.deepseek.r1-v1:0`)
-- AWS Lambda Function URL: https://h6util56iwzeyadx6kbjyuakbi0zuucm.lambda-url.us-east-1.on.aws/
-- AWS Amplify (Frontend hosting with API rewrites)
-
-## 🧪 Smoke Test
-
-### JSON Format Test:
-```powershell
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-$LAMBDA_URL = "https://h6util56iwzeyadx6kbjyuakbi0zuucm.lambda-url.us-east-1.on.aws/"
-$BODY='{"salesData":[{"date":"2025-08-01","region":"East","channel":"Online","amount":18000,"orders":45},{"date":"2025-08-02","region":"West","channel":"Store","amount":9000,"orders":25}], "instruction":"日本語のみで、KPI・要点・トレンドを簡潔に。", "responseFormat":"json"}'
-Invoke-RestMethod -Method Post -Uri $LAMBDA_URL -ContentType "application/json; charset=utf-8" -Body $BODY
-```
-
-### Markdown Format Test:
-```powershell
-$BODY='{"salesData":[{"date":"2025-08-01","region":"East","channel":"Online","amount":18000,"orders":45},{"date":"2025-08-02","region":"West","channel":"Store","amount":9000,"orders":25}], "instruction":"日本語のみで、KPI・要点・トレンド・提案を箇条書きで簡潔に。", "responseFormat":"markdown"}'
-Invoke-RestMethod -Method Post -Uri $LAMBDA_URL -ContentType "application/json; charset=utf-8" -Body $BODY
-```
-
-### Expected Response:
-- `message: "OK"`
-- `engine: "bedrock"`
-- `model: "us.deepseek.r1-v1:0"`
-- `response.summary_ai`: Japanese text (JSON format: overview field, Markdown format: natural text)
-
-## 📝 Development Notes
-
-- **Encoding**: Handles UTF-8, UTF-8-BOM, and Shift-JIS CSV files
-- **Base64**: Auto-detects and decodes Base64-encoded payloads
-- **Pandas**: Robust CSV parsing with error handling
-- **TypeScript**: Fully typed frontend with proper error boundaries
-# GitHub Actions テスト 2025年 9月  8日 月曜日 02:41:30    
-# GitHub Secrets設定完了テスト 2025年 9月  8日 月曜日 03:40:57    
+**Powered by Claude 3 Sonnet - Advanced AI Image Analysis**

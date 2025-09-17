@@ -16,15 +16,18 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info(f"Event: {json.dumps(event, default=str)}")
 
     try:
-        # CORS headers
+        # CORS headers - simplified to avoid duplicates
         headers = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Allow-Methods": "OPTIONS,POST"
+            "Content-Type": "application/json"
         }
 
+        # Function URLの場合はrequestContextからメソッドを取得
+        http_method = event.get('httpMethod') or event.get('requestContext', {}).get('http', {}).get('method')
+
+        logger.info(f"HTTP Method: {http_method}")
+
         # OPTIONS リクエスト (CORS preflight)
-        if event.get('httpMethod') == 'OPTIONS':
+        if http_method == 'OPTIONS':
             return {
                 'statusCode': 200,
                 'headers': headers,
@@ -32,11 +35,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
 
         # POST リクエストのみ許可
-        if event.get('httpMethod') != 'POST':
+        if http_method != 'POST':
             return {
                 'statusCode': 405,
                 'headers': headers,
-                'body': json.dumps({'error': 'Method not allowed'})
+                'body': json.dumps({'error': f'Method {http_method} not allowed'})
             }
 
         # リクエストボディを解析
@@ -77,9 +80,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return {
             'statusCode': 500,
             'headers': {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "Content-Type",
-                "Access-Control-Allow-Methods": "OPTIONS,POST"
+                "Content-Type": "application/json"
             },
             'body': json.dumps({
                 'error': str(e),
@@ -101,17 +102,29 @@ def analyze_image_with_claude(image_data: str, prompt: str) -> str:
         # Bedrock Runtime クライアント
         bedrock = boto3.client('bedrock-runtime', region_name=region)
 
-        # システムプロンプト
-        system_prompt = """あなたは画像分析の専門家です。
-画像の内容を詳細に分析し、以下の観点から説明してください：
+        # 強化されたシステムプロンプト
+        system_prompt = """あなたは高精度なビジネス文書・データ分析の専門家です。
 
-1. 画像の基本情報（種類、主要な要素）
-2. テキストがある場合は正確に読み取り
-3. 数値データやグラフがある場合は内容を分析
-4. ビジネス上の意味や示唆があれば説明
-5. 実用的な洞察や提案
+**OCR・テキスト抽出タスク:**
+- 文字や数値は1文字も見落とさず、完全に正確に読み取る
+- 表・グラフ・チャートの数値データは全て漏れなく抽出
+- 曖昧な文字は文脈から推測して最も適切な解釈を提示
+- レイアウト構造（表の行列関係、見出し階層）を正確に把握
 
-日本語で分かりやすく、具体的に回答してください。"""
+**データ分析タスク:**
+1. **構造的データ読み取り**: 表・グラフの全データを体系的に抽出
+2. **数値計算**: ROI、増減率、平均値、合計値等を正確に算出
+3. **トレンド分析**: 時系列変化、パフォーマンス比較、パターン発見
+4. **ビジネス洞察**: 戦略的示唆、改善提案、リスク要因の特定
+5. **具体的推奨**: 実行可能なアクションプランの提示
+
+**出力形式:**
+- 抽出データは表形式で整理
+- 重要な数値は具体的に明記
+- 分析結果は論理的な構造で整理
+- 日本語で専門的かつ分かりやすく記述
+
+精度と詳細性を最優先とし、推測ではなく画像から確実に読み取れる情報のみを報告してください。"""
 
         # Claude API用のメッセージ形式（Bedrock Converse API）
         messages = [{
