@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { UploadedFile, ImageAnalysisResult, AnalysisStatus } from '../types'
+import { logger } from '../utils/logger'
 
 const API_ENDPOINT = 'https://rzddt4m5k6mllt2kkl7xa7rokm0urcjs.lambda-url.us-east-1.on.aws/'
 
@@ -55,7 +56,12 @@ export function useImageAnalysis() {
       })
       setStatus('completed')
     } catch (error) {
-      console.error('Analysis failed:', error)
+      logger.error('Image analysis failed', error instanceof Error ? error : new Error(String(error)), {
+        component: 'useImageAnalysis',
+        operation: 'startAnalysis',
+        fileType: uploadedFile?.file.type,
+        fileSize: uploadedFile?.file.size
+      })
       setResult({
         extractedText: '',
         confidence: 0,
