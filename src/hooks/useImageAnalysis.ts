@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { UploadedFile, ImageAnalysisResult, AnalysisStatus } from '../types'
 import { logger } from '../utils/logger'
+import { validateTextInput, sanitizeTextInput, checkRateLimit } from '../utils/security'
+import { createError, handleError } from '../utils/errorHandler'
 
 const API_ENDPOINT = 'https://rzddt4m5k6mllt2kkl7xa7rokm0urcjs.lambda-url.us-east-1.on.aws/'
 
@@ -11,17 +13,30 @@ export function useImageAnalysis() {
 
   const startAnalysis = async (type: string, instructions: string) => {
     if (!uploadedFile) {
-      throw new Error('画像ファイルをアップロードしてください')
+      throw createError.validation('画像ファイルをアップロードしてください')
+    }
+
+    // Security validations
+    if (!validateTextInput(instructions, 500)) {
+      throw createError.validation('指示文に不正な文字が含まれているか、長すぎます')
+    }
+
+    // Rate limiting (simple client-side check)
+    const userIdentifier = 'user-session' // In production, use actual user ID
+    if (!checkRateLimit(userIdentifier, 5, 60000)) {
+      throw createError.permission('リクエスト回数が上限を超えました。しばらく時間をおいてからお試しください')
     }
 
     setStatus('processing')
     setResult(null)
 
+    const sanitizedInstructions = sanitizeTextInput(instructions || 'この画像・文書を詳細に分析してください。')
+
     const requestBody = {
-      prompt: instructions || 'この画像・文書を詳細に分析してください。',
+      prompt: sanitizedInstructions,
       image_data: uploadedFile.base64Data.split(',')[1] || uploadedFile.base64Data,
       analysisType: type,
-      customInstructions: instructions,
+      customInstructions: sanitizedInstructions,
       filename: uploadedFile.file.name,
       fileSize: uploadedFile.file.size,
       fileType: 'image',
@@ -56,12 +71,11 @@ export function useImageAnalysis() {
       })
       setStatus('completed')
     } catch (error) {
-      logger.error('Image analysis failed', error instanceof Error ? error : new Error(String(error)), {
-        component: 'useImageAnalysis',
-        operation: 'startAnalysis',
-        fileType: uploadedFile?.file.type,
-        fileSize: uploadedFile?.file.size
-      })
+      const errorMessage = handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        'useImageAnalysis',
+        'startAnalysis'
+      )
       setResult({
         extractedText: '',
         confidence: 0,
