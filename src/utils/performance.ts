@@ -65,7 +65,7 @@ export const logBundleInfo = (): void => {
     console.log(`Stylesheets loaded: ${styles.length}`)
 
     if ('connection' in navigator) {
-      const conn = (navigator as any).connection
+      const conn = (navigator as { connection?: { effectiveType: string; downlink: number } }).connection
       if (conn) {
         console.log(`Network: ${conn.effectiveType}`)
         console.log(`Downlink: ${conn.downlink}Mbps`)
