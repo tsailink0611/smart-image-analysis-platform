@@ -18,21 +18,21 @@ export interface AppError extends Error {
   type: ErrorType
   code: string | undefined
   statusCode: number | undefined
-  context: Record<string, any> | undefined
+  context: Record<string, unknown> | undefined
 }
 
 export class SmartImageError extends Error implements AppError {
   public readonly type: ErrorType
   public readonly code: string | undefined
   public readonly statusCode: number | undefined
-  public readonly context: Record<string, any> | undefined
+  public readonly context: Record<string, unknown> | undefined
 
   constructor(
     message: string,
     type: ErrorType = ErrorType.UNKNOWN,
     code?: string,
     statusCode?: number,
-    context?: Record<string, any>
+    context?: Record<string, unknown>
   ) {
     super(message)
     this.name = 'SmartImageError'
@@ -44,19 +44,19 @@ export class SmartImageError extends Error implements AppError {
 }
 
 export const createError = {
-  network: (message: string, statusCode?: number, context?: Record<string, any>) =>
+  network: (message: string, statusCode?: number, context?: Record<string, unknown>) =>
     new SmartImageError(message, ErrorType.NETWORK, 'NETWORK_ERROR', statusCode, context),
 
-  validation: (message: string, field?: string, context?: Record<string, any>) =>
+  validation: (message: string, field?: string, context?: Record<string, unknown>) =>
     new SmartImageError(message, ErrorType.VALIDATION, 'VALIDATION_ERROR', 400, { field, ...context }),
 
-  upload: (message: string, context?: Record<string, any>) =>
+  upload: (message: string, context?: Record<string, unknown>) =>
     new SmartImageError(message, ErrorType.UPLOAD, 'UPLOAD_ERROR', 400, context),
 
-  analysis: (message: string, context?: Record<string, any>) =>
+  analysis: (message: string, context?: Record<string, unknown>) =>
     new SmartImageError(message, ErrorType.ANALYSIS, 'ANALYSIS_ERROR', 500, context),
 
-  permission: (message: string, context?: Record<string, any>) =>
+  permission: (message: string, context?: Record<string, unknown>) =>
     new SmartImageError(message, ErrorType.PERMISSION, 'PERMISSION_ERROR', 403, context)
 }
 

@@ -4,6 +4,7 @@ import ResultDisplay from './components/ResultDisplay'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import { useImageAnalysis } from './hooks/useImageAnalysis'
+import { UploadedFile } from './types'
 
 function App() {
   const {
@@ -15,7 +16,7 @@ function App() {
     resetAnalysis
   } = useImageAnalysis()
 
-  const handleFileUploaded = (file: any) => {
+  const handleFileUploaded = (file: UploadedFile) => {
     setUploadedFile(file)
     resetAnalysis()
   }

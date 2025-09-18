@@ -9,15 +9,15 @@ interface LogContext {
   component?: string
   operation?: string
   userId?: string
-  metadata?: Record<string, any>
-  errorInfo?: any
+  metadata?: Record<string, unknown>
+  errorInfo?: Record<string, unknown>
   errorType?: string
   inputLength?: number
   identifier?: string
   count?: number
   maxRequests?: number
   missingVars?: string[]
-  [key: string]: any
+  [key: string]: unknown
 }
 
 class Logger {

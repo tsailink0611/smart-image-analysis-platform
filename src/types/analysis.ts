@@ -30,7 +30,7 @@ export interface APIResponse {
   formatLearning?: {
     profileFound: boolean;
     columnsLearned: number;
-    suggestions?: any[];
+    suggestions?: string[];
   };
 }
 

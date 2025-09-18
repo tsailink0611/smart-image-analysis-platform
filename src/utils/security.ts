@@ -21,7 +21,7 @@ export const MIN_FILE_SIZE = 1024 // 1KB
 
 // Security validation functions
 export const validateFileType = (file: File): boolean => {
-  return ALLOWED_IMAGE_TYPES.includes(file.type as any)
+  return ALLOWED_IMAGE_TYPES.includes(file.type as typeof ALLOWED_IMAGE_TYPES[number])
 }
 
 export const validateFileSize = (file: File): boolean => {
@@ -45,7 +45,7 @@ export const validateBase64Image = (base64Data: string): boolean => {
     // Attempt to decode to verify validity
     atob(base64Content)
     return true
-  } catch (error) {
+  } catch {
     logger.warn('Invalid base64 image data detected', {
       component: 'security',
       operation: 'validateBase64Image'

@@ -67,7 +67,8 @@
       "Bash(aws:*)",
       "Bash(find:*)",
       "Bash(npx vercel:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npm test)"
     ],
     "deny": [],
     "ask": []

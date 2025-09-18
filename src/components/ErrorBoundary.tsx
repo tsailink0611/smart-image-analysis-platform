@@ -25,11 +25,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    logger.error('Unhandled React error', error, {
+    const logContext: { component: string; operation: string; errorInfo?: Record<string, unknown> } = {
       component: 'ErrorBoundary',
-      operation: 'componentDidCatch',
-      errorInfo: errorInfo.componentStack
-    })
+      operation: 'componentDidCatch'
+    }
+    if (errorInfo.componentStack) {
+      logContext.errorInfo = { componentStack: errorInfo.componentStack }
+    }
+    logger.error('Unhandled React error', error, logContext)
   }
 
   override render() {
