@@ -65,7 +65,9 @@
       "Bash(cat:*)",
       "Bash(aws lambda get-function:*)",
       "Bash(aws:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx vercel:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []
