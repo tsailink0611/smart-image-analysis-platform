@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { UploadedFile, ImageAnalysisResult, AnalysisStatus } from '../types'
-import { logger } from '../utils/logger'
 import { validateTextInput, sanitizeTextInput, checkRateLimit } from '../utils/security'
 import { createError, handleError } from '../utils/errorHandler'
 
@@ -71,7 +70,7 @@ export function useImageAnalysis() {
       })
       setStatus('completed')
     } catch (error) {
-      const errorMessage = handleError(
+      handleError(
         error instanceof Error ? error : new Error(String(error)),
         'useImageAnalysis',
         'startAnalysis'

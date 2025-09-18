@@ -24,7 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     logger.error('Unhandled React error', error, {
       component: 'ErrorBoundary',
       operation: 'componentDidCatch',
@@ -32,7 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
     })
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;

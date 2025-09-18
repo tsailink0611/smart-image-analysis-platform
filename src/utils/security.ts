@@ -46,4 +46,131 @@ export const validateBase64Image = (base64Data: string): boolean => {
     atob(base64Content)
     return true
   } catch (error) {
-    logger.warn('Invalid base64 image data detected', {\n      component: 'security',\n      operation: 'validateBase64Image'\n    })\n    return false\n  }\n}\n\nexport const sanitizeFilename = (filename: string): string => {\n  // Remove dangerous characters and limit length\n  return filename\n    .replace(/[^a-zA-Z0-9._-]/g, '_')\n    .substring(0, 255)\n    .toLowerCase()\n}\n\nexport const validateTextInput = (input: string, maxLength: number = 1000): boolean => {\n  if (typeof input !== 'string') {\n    return false\n  }\n\n  if (input.length > maxLength) {\n    return false\n  }\n\n  // Check for potential script injection\n  const scriptPattern = /<script|javascript:|data:text\/html|vbscript:/i\n  if (scriptPattern.test(input)) {\n    logger.warn('Potential script injection detected', {\n      component: 'security',\n      operation: 'validateTextInput',\n      inputLength: input.length\n    })\n    return false\n  }\n\n  return true\n}\n\nexport const sanitizeTextInput = (input: string): string => {\n  return input\n    .replace(/[<>\"'&]/g, '') // Remove potentially dangerous characters\n    .trim()\n    .substring(0, 1000) // Limit length\n}\n\n// Rate limiting (simple in-memory implementation)\ninterface RateLimitEntry {\n  count: number\n  resetTime: number\n}\n\nconst rateLimitMap = new Map<string, RateLimitEntry>()\n\nexport const checkRateLimit = (\n  identifier: string,\n  maxRequests: number = 10,\n  windowMs: number = 60000 // 1 minute\n): boolean => {\n  const now = Date.now()\n  const entry = rateLimitMap.get(identifier)\n\n  if (!entry || now > entry.resetTime) {\n    rateLimitMap.set(identifier, {\n      count: 1,\n      resetTime: now + windowMs\n    })\n    return true\n  }\n\n  if (entry.count >= maxRequests) {\n    logger.warn('Rate limit exceeded', {\n      component: 'security',\n      operation: 'checkRateLimit',\n      identifier,\n      count: entry.count,\n      maxRequests\n    })\n    return false\n  }\n\n  entry.count++\n  return true\n}\n\n// Environment variable validation\nexport const validateEnvironment = (): boolean => {\n  const requiredVars = ['NODE_ENV']\n  const missingVars = requiredVars.filter(varName => !process.env[varName])\n\n  if (missingVars.length > 0) {\n    logger.error('Missing required environment variables', undefined, {\n      component: 'security',\n      operation: 'validateEnvironment',\n      missingVars\n    })\n    return false\n  }\n\n  return true\n}\n\n// Content Security Policy helpers\nexport const getCSPHeader = (): string => {\n  return [\n    \"default-src 'self'\",\n    \"script-src 'self' 'unsafe-inline'\",\n    \"style-src 'self' 'unsafe-inline'\",\n    \"img-src 'self' data: blob:\",\n    \"connect-src 'self' https://*.lambda-url.*.on.aws\",\n    \"font-src 'self'\",\n    \"object-src 'none'\",\n    \"base-uri 'self'\",\n    \"form-action 'self'\"\n  ].join('; ')\n}\n\n// Security headers for production\nexport const getSecurityHeaders = (): Record<string, string> => {\n  return {\n    'Content-Security-Policy': getCSPHeader(),\n    'X-Content-Type-Options': 'nosniff',\n    'X-Frame-Options': 'DENY',\n    'X-XSS-Protection': '1; mode=block',\n    'Referrer-Policy': 'strict-origin-when-cross-origin',\n    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'\n  }\n}"
+    logger.warn('Invalid base64 image data detected', {
+      component: 'security',
+      operation: 'validateBase64Image'
+    })
+    return false
+  }
+}
+
+export const sanitizeFilename = (filename: string): string => {
+  // Remove dangerous characters and limit length
+  return filename
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .substring(0, 255)
+    .toLowerCase()
+}
+
+export const validateTextInput = (input: string, maxLength: number = 1000): boolean => {
+  if (typeof input !== 'string') {
+    return false
+  }
+
+  if (input.length > maxLength) {
+    return false
+  }
+
+  // Check for potential script injection
+  const scriptPattern = /<script|javascript:|data:text\/html|vbscript:/i
+  if (scriptPattern.test(input)) {
+    logger.warn('Potential script injection detected', {
+      component: 'security',
+      operation: 'validateTextInput',
+      inputLength: input.length
+    })
+    return false
+  }
+
+  return true
+}
+
+export const sanitizeTextInput = (input: string): string => {
+  return input
+    .replace(/[<>"'&]/g, '') // Remove potentially dangerous characters
+    .trim()
+    .substring(0, 1000) // Limit length
+}
+
+// Rate limiting (simple in-memory implementation)
+interface RateLimitEntry {
+  count: number
+  resetTime: number
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>()
+
+export const checkRateLimit = (
+  identifier: string,
+  maxRequests: number = 10,
+  windowMs: number = 60000 // 1 minute
+): boolean => {
+  const now = Date.now()
+  const entry = rateLimitMap.get(identifier)
+
+  if (!entry || now > entry.resetTime) {
+    rateLimitMap.set(identifier, {
+      count: 1,
+      resetTime: now + windowMs
+    })
+    return true
+  }
+
+  if (entry.count >= maxRequests) {
+    logger.warn('Rate limit exceeded', {
+      component: 'security',
+      operation: 'checkRateLimit',
+      identifier,
+      count: entry.count,
+      maxRequests
+    })
+    return false
+  }
+
+  entry.count++
+  return true
+}
+
+// Environment variable validation
+export const validateEnvironment = (): boolean => {
+  const requiredVars = ['NODE_ENV']
+  const missingVars = requiredVars.filter(varName => !process.env[varName])
+
+  if (missingVars.length > 0) {
+    logger.error('Missing required environment variables', undefined, {
+      component: 'security',
+      operation: 'validateEnvironment',
+      missingVars
+    })
+    return false
+  }
+
+  return true
+}
+
+// Content Security Policy helpers
+export const getCSPHeader = (): string => {
+  return [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "connect-src 'self' https://*.lambda-url.*.on.aws",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'"
+  ].join('; ')
+}
+
+// Security headers for production
+export const getSecurityHeaders = (): Record<string, string> => {
+  return {
+    'Content-Security-Policy': getCSPHeader(),
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+  }
+}

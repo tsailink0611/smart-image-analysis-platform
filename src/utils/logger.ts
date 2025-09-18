@@ -10,6 +10,14 @@ interface LogContext {
   operation?: string
   userId?: string
   metadata?: Record<string, any>
+  errorInfo?: any
+  errorType?: string
+  inputLength?: number
+  identifier?: string
+  count?: number
+  maxRequests?: number
+  missingVars?: string[]
+  [key: string]: any
 }
 
 class Logger {

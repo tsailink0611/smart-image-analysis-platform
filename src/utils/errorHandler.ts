@@ -16,16 +16,16 @@ export enum ErrorType {
 
 export interface AppError extends Error {
   type: ErrorType
-  code?: string
-  statusCode?: number
-  context?: Record<string, any>
+  code: string | undefined
+  statusCode: number | undefined
+  context: Record<string, any> | undefined
 }
 
 export class SmartImageError extends Error implements AppError {
   public readonly type: ErrorType
-  public readonly code?: string
-  public readonly statusCode?: number
-  public readonly context?: Record<string, any>
+  public readonly code: string | undefined
+  public readonly statusCode: number | undefined
+  public readonly context: Record<string, any> | undefined
 
   constructor(
     message: string,
