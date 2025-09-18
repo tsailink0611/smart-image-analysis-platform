@@ -1,117 +1,37 @@
-import { useState } from 'react'
 import ImageUpload from './components/ImageUpload'
 import DocumentAnalysis from './components/DocumentAnalysis'
 import ResultDisplay from './components/ResultDisplay'
-import { UploadedFile, ImageAnalysisResult, AnalysisStatus } from './types'
-
-const API_ENDPOINT = 'https://rzddt4m5k6mllt2kkl7xa7rokm0urcjs.lambda-url.us-east-1.on.aws/'
+import Header from './components/Header'
+import Footer from './components/Footer'
+import { useImageAnalysis } from './hooks/useImageAnalysis'
 
 function App() {
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)
-  const [analysisType, setAnalysisType] = useState<string>('')
-  const [customInstructions, setCustomInstructions] = useState<string>('')
-  const [result, setResult] = useState<ImageAnalysisResult | null>(null)
-  const [status, setStatus] = useState<AnalysisStatus>('idle')
+  const {
+    uploadedFile,
+    setUploadedFile,
+    result,
+    status,
+    startAnalysis,
+    resetAnalysis
+  } = useImageAnalysis()
 
-  const handleFileUploaded = (file: UploadedFile) => {
+  const handleFileUploaded = (file: any) => {
     setUploadedFile(file)
-    setResult(null)
-    setStatus('idle')
+    resetAnalysis()
   }
 
   const handleAnalysisStart = async (type: string, instructions: string) => {
-    console.log('Analysis start called with:', { type, instructions, uploadedFile })
-
-    if (!uploadedFile) {
-      console.error('No file uploaded!')
-      alert('画像ファイルをアップロードしてください')
-      return
-    }
-
-    console.log('Starting analysis with file:', uploadedFile.file.name, uploadedFile.file.size)
-    console.log('Base64 data length:', uploadedFile.base64Data.length)
-
-    setAnalysisType(type)
-    setCustomInstructions(instructions)
-    setStatus('processing')
-    setResult(null)
-
-    const requestBody = {
-      prompt: instructions || 'この画像・文書を詳細に分析してください。',
-      image_data: uploadedFile.base64Data.split(',')[1] || uploadedFile.base64Data,
-      analysisType: type,
-      customInstructions: instructions,
-      filename: uploadedFile.file.name,
-      fileSize: uploadedFile.file.size,
-      fileType: 'image',
-      mimeType: uploadedFile.file.type,
-    }
-
-    console.log('Request body size:', JSON.stringify(requestBody).length)
-
     try {
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const analysisResult = await response.json()
-
-      setResult({
-        extractedText: analysisResult.result || analysisResult.extractedText || '',
-        confidence: analysisResult.confidence || 95,
-        analysis: analysisResult.result || analysisResult.analysis || '',
-        metadata: {
-          fileSize: uploadedFile.file.size,
-          fileType: uploadedFile.file.type,
-          dimensions: analysisResult.dimensions,
-          processingTime: analysisResult.processingTime,
-        },
-      })
-      setStatus('completed')
+      await startAnalysis(type, instructions)
     } catch (error) {
-      console.error('Analysis failed:', error)
-      setResult({
-        extractedText: '',
-        confidence: 0,
-        analysis: `分析に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`,
-        metadata: {
-          fileSize: uploadedFile.file.size,
-          fileType: uploadedFile.file.type,
-        },
-      })
-      setStatus('error')
+      alert(error instanceof Error ? error.message : '不明なエラー')
     }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <header className="text-center mb-12">
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center text-2xl text-white mr-4">
-              🤖
-            </div>
-            <h1 className="text-4xl font-bold text-gray-800">
-              Smart Image Analysis Platform
-            </h1>
-          </div>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Claude 4 Sonnetを活用した高精度画像・文書分析システム
-          </p>
-          <div className="mt-4 inline-flex items-center px-4 py-2 bg-blue-100 rounded-full text-blue-800 text-sm font-medium">
-            <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></span>
-            Powered by Claude 4 Sonnet
-          </div>
-        </header>
+        <Header />
 
         {/* Main Content */}
         <div className="max-w-6xl mx-auto space-y-8">
@@ -155,13 +75,7 @@ function App() {
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="mt-16 text-center text-gray-500 text-sm">
-          <div className="border-t border-gray-200 pt-8">
-            <p>© 2024 Smart Image Analysis Platform. Powered by Claude 4 Sonnet.</p>
-            <p className="mt-2">OCR + AI分析による次世代文書解析システム</p>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </div>
   )
